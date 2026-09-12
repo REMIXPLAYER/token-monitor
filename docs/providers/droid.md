@@ -1,5 +1,5 @@
 ---
-summary: "Factory Droid provider notes: one kernel behind the CLI and desktop app, the sessions-index.json metadata source, usage flush timing, and what is deliberately not supported."
+summary: "Factory Droid provider notes: one kernel behind the CLI and desktop app, its session metadata sources, usage flush timing, and what is deliberately not supported."
 read_when:
   - Changing or debugging Droid session discovery, titles, timestamps or project attribution
   - Investigating Droid usage that is missing from, or zero in, the widget
@@ -20,7 +20,8 @@ it as `droid daemon` / `droid exec` subprocesses; it keeps only UI state under
 ```
 ~/.factory/sessions/<encoded-cwd>/<session-uuid>.jsonl          transcript
 ~/.factory/sessions/<encoded-cwd>/<session-uuid>.settings.json  cumulative tokenUsage
-~/.factory/sessions-index.json                                  central session index
+~/.factory/cache/session-discovery-index.json                   current session index
+~/.factory/sessions-index.json                                  legacy session index
 ```
 
 so one tracked client (`droid`) covers both front-ends and tokscale's recursive
@@ -46,7 +47,7 @@ and an optional `factoryCredits` (Factory Standard Credits) that tokscale's acco
 | Data plane | Read by | Source |
 | --- | --- | --- |
 | Token usage (periods, dashboard, history) | the shared usage collector, through `tokscale` | `*.settings.json`, parsed by tokscale's droid scanner |
-| Session metadata (title, timestamps, project) | collector enrichment, through `providers/droid/sessionMetadata.js` | `sessions-index.json`, parsed locally |
+| Session metadata (title, activity times, project) | collector enrichment | tokscale's `sessions` array plus both session-index generations through `providers/droid/sessionMetadata.js` |
 | Session Detail (per-turn breakdown) | — deliberately unsupported, see below | — |
 
 ## Usage flows through tokscale only
@@ -66,12 +67,20 @@ subscription.
 
 ## Session metadata comes from the index file
 
-`providers/droid/sessionMetadata.js` reads `sessions-index.json`, whose entries carry
-`{sessionId, title, cwd, createdAt, mtime}`:
+`providers/droid/sessionMetadata.js` reads both on-disk index generations, preferring the current
+entry when both contain the same session:
 
-- `createdAt`/`mtime` (epoch milliseconds) become `startedAt`/`lastUsedAt`; `title` passes
-  through trimmed; `cwd` goes through the shared `projectIdentity()` so droid sessions join the
-  project attribution with the same hashing as every other client.
+- The current index format, verified with Droid 0.218.1, is
+  `.factory/cache/session-discovery-index.json` (version 6); its `entries` object is keyed by
+  session id, and each value uses
+  `{id, title, cwd, createdTimeMs, modifiedTimeMs, messageCount, ...}`.
+- Older releases write `.factory/sessions-index.json` (version 2), whose entries use fields such
+  as `{sessionId, hostId, title, cwd, mtime, settingsMtime, messagesCount, ...}`. They do not carry
+  `createdAt`; legacy index entries therefore provide `lastUsedAt` but not `startedAt`.
+- The available epoch-millisecond fields become `startedAt`/`lastUsedAt`; `title` passes through
+  trimmed; `cwd` goes through the shared `projectIdentity()` so droid sessions join project
+  attribution with the same hashing as every other client. Pinned tokscale also supplies
+  transcript-backed `firstActiveMs`/`lastActiveMs`, so legacy sessions still get activity bounds.
 - The index is written asynchronously by the droid kernel — a session id can appear in a tokscale
   scan before its index entry lands, which is why the resolver registers
   `retryAfterTimestampFallback: true`.
@@ -79,10 +88,10 @@ subscription.
   working with bare ids.
 - WSL decoration passes the distro home, so a distro's own index is honored; there are no
   cross-home lookups.
-- `FACTORY_HOME_OVERRIDE` (droid's own home relocation) is deliberately not consulted: the scan
-  root and the index resolve from the same home-relative path so they cannot diverge. Relocated
-  homes are the per-tool custom-scan-paths use case — tokscale's droid scanner honors
-  `TOKSCALE_EXTRA_DIRS` (verified against the pinned build).
+- `FACTORY_HOME_OVERRIDE` (droid's own home relocation) is deliberately not consulted. A per-tool
+  custom scan path can relocate token scanning through `TOKSCALE_EXTRA_DIRS`, but the local
+  session-index resolvers remain home-relative. Relocated sessions therefore keep token usage and
+  scan-backed activity times, while index-only title/project enrichment may be absent.
 
 The pinned tokscale fork also emits scan-backed `sessions` timestamps (`firstActiveMs` /
 `lastActiveMs`) for droid, and the collector folds them in before this resolver runs. The two
