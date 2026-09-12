@@ -1,5 +1,5 @@
 ---
-summary: "Droid (Factory) provider notes: one kernel behind the CLI and desktop app, the sessions-index.json metadata source, usage flush timing, and what is deliberately not supported."
+summary: "Factory Droid provider notes: one kernel behind the CLI and desktop app, the sessions-index.json metadata source, usage flush timing, and what is deliberately not supported."
 read_when:
   - Changing or debugging Droid session discovery, titles, timestamps or project attribution
   - Investigating Droid usage that is missing from, or zero in, the widget
@@ -8,7 +8,7 @@ read_when:
   - Considering a Factory (`factory`) limits provider, OAuth discovery, or a second scanner for the same sessions
 ---
 
-# Droid (Factory) provider
+# Factory Droid provider
 
 ## One kernel, two front-ends, one data plane
 

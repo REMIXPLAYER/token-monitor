@@ -13,11 +13,14 @@ const {
   deriveClientHealth,
   watchPathsForClients
 } = require('../../src/shared/collector');
+const { CLIENT_LABELS } = require('../../src/shared/clientCatalog');
 const { CUSTOM_SCAN_CLIENT_IDS, tokscaleExtraDirsEnv } = require('../../src/shared/customScanPaths');
+const { parseGraphResult } = require('../../src/shared/history');
 const { extractUsageFromTokscale, normalizeClientName } = require('../../src/shared/usage');
 const { homeHasData } = require('../../src/shared/wslUsage');
 
-test('Droid normalization is exact and preserves unrelated Android clients', () => {
+test('Factory Droid keeps the canonical droid id without matching Android clients', () => {
+  assert.equal(CLIENT_LABELS.droid, 'Factory Droid');
   assert.equal(normalizeClientName('Droid'), 'droid');
   assert.equal(normalizeClientName('android'), 'android');
   assert.equal(normalizeClientName('android-studio'), 'android-studio');
@@ -75,4 +78,54 @@ test('Droid usage keeps Tokscale token categories and session attribution', () =
   assert.equal(period.clientCacheReads.droid, 30);
   assert.equal(period.clientCacheWrites.droid, 10);
   assert.equal(period.sessions['droid:session-1'].client, 'droid');
+});
+
+test('Droid usage folds disjoint thinking tokens into public output', () => {
+  const period = extractUsageFromTokscale({
+    groupBy: 'client,session,model',
+    entries: [{
+      client: 'droid',
+      model: 'claude-sonnet-4-5',
+      sessionId: 'session-reasoning',
+      input: 100,
+      output: 20,
+      cacheRead: 30,
+      cacheWrite: 10,
+      reasoning: 7,
+      totalTokens: 167
+    }]
+  });
+
+  assert.equal(period.totalTokens, 167);
+  assert.equal(period.outputTokens, 27);
+  assert.equal(period.clientOutputs.droid, 27);
+  assert.equal(period.sessions['droid:session-reasoning'].outputTokens, 27);
+  assert.equal(period.sessions['droid:session-reasoning'].reasoningTokens, 7);
+});
+
+test('Droid graph history includes disjoint thinking tokens', () => {
+  const parsed = parseGraphResult({
+    contributions: [{
+      date: '2026-09-13',
+      clients: [{
+        client: 'droid',
+        modelId: 'claude-sonnet-4-5',
+        tokens: {
+          input: 100,
+          output: 20,
+          cacheRead: 30,
+          cacheWrite: 10,
+          reasoning: 7
+        }
+      }]
+    }]
+  });
+  const day = parsed.contributions[0];
+
+  assert.equal(day.tokens, 167);
+  assert.equal(day.outputTokens, 27);
+  assert.equal(day.perClient.droid.tokens, 167);
+  assert.equal(day.perClient.droid.outputTokens, 27);
+  assert.equal(day.perModel['claude-sonnet-4-5'].tokens, 167);
+  assert.equal(day.perModel['claude-sonnet-4-5'].outputTokens, 27);
 });
