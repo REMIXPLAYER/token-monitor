@@ -127,7 +127,7 @@ test('a card commits after its reported height is clamped to the work area', () 
       const card = { dataset: {}, style: {}, getBoundingClientRect: () => ({ height: measured }) };
       const renderBubble = Function('deps', `
         const { root, stagingLayer, providerCard, statCard, fitCardTotal,
-          clampBreakdownList, bridge, commitCard } = deps;
+          clampBreakdownList, reserveAccountHeight, bridge, commitCard } = deps;
         ${source}
         return renderBubble;
       `)({
@@ -137,6 +137,7 @@ test('a card commits after its reported height is clamped to the work area', () 
         statCard: () => card,
         fitCardTotal() {},
         clampBreakdownList() {},
+        reserveAccountHeight() {},
         bridge: { reportBubbleSize: (cellId, height) => reports.push({ cellId, height }) },
         commitCard: (_card, cellId) => { visibleId = cellId; }
       });
@@ -989,12 +990,49 @@ test('the sessions rate line carries no unreachable tooltip', () => {
 // `.edge-dock-session-list` - and that is the one which overflows there, because running
 // rows are never capped. Reading only the first selector meant every clock repaint of
 // that card reset it to the top, mid-read.
+test('provider detail reserves natural account height without exceeding half the card', () => {
+  const dock = readRendererFile(path.join('edgeDock', 'dock.js'));
+  const source = dock.slice(dock.indexOf('function reserveAccountHeight('), dock.indexOf('function fitCardTotal('));
+  const reserve = Function(`${source}; return reserveAccountHeight;`)();
+  for (const [natural, cap, expected] of [[75.15, 570, '76px'], [1200, 570, '285px'], [75.15, 228, '76px']]) {
+    const accounts = { style: { flexShrink: '' }, getBoundingClientRect: () => ({ height: accounts.style.flexShrink === '0' ? natural : 48 }) };
+    const card = { querySelector: selector => selector.endsWith('accounts') ? accounts : {} };
+    reserve(card, cap);
+    assert.equal(accounts.style.minHeight, expected);
+    assert.equal(accounts.style.flexShrink, '', 'keep the original shared scrolling/flex rule');
+  }
+  const accounts = { style: {}, getBoundingClientRect: () => { throw new Error('no need to measure without sessions'); } };
+  reserve({ querySelector: selector => selector.endsWith('accounts') ? accounts : null }, 570);
+  assert.equal(accounts.style.minHeight, undefined);
+});
+
+test('shared card repaint preserves both account and session scroll positions independently', () => {
+  const dock = readRendererFile(path.join('edgeDock', 'dock.js'));
+  const source = dock.slice(dock.indexOf('function commitCard('), dock.indexOf('// The period card'));
+  let previous;
+  const commit = Function('deps', `const {contentLayer, overflowText, cardResetAnimator, CARD_SCROLL_SELECTOR} = deps; ${source}; return commitCard;`)({
+    contentLayer: { querySelector: () => previous, replaceChildren() {} },
+    overflowText: { refresh() {}, preserveReading() {} },
+    cardResetAnimator: { capture() {}, animate() {} },
+    CARD_SCROLL_SELECTOR: '.edge-dock-accounts, .edge-dock-session-list'
+  });
+  const make = (id, positions) => ({ dataset: { cellId: id }, querySelector: selector => positions[selector] });
+  previous = make('codex', { '.edge-dock-accounts': { scrollTop: 25 }, '.edge-dock-session-list': { scrollTop: 150 } });
+  const positions = { '.edge-dock-accounts': { scrollTop: 0 }, '.edge-dock-session-list': { scrollTop: 0 } };
+  commit(make('codex', positions), 'codex');
+  assert.equal(positions['.edge-dock-accounts'].scrollTop, 25);
+  assert.equal(positions['.edge-dock-session-list'].scrollTop, 150);
+  commit(make('claude', positions), 'claude');
+  assert.equal(positions['.edge-dock-accounts'].scrollTop, 0);
+  assert.equal(positions['.edge-dock-session-list'].scrollTop, 0);
+});
+
 test('a repainted card restores the scroll container it actually uses', () => {
   const dock = readRendererFile(path.join('edgeDock', 'dock.js'));
   const css = readRendererFile(path.join('edgeDock', 'dock.css'));
   const commit = dock.slice(dock.indexOf('function commitCard('), dock.indexOf('function renderBubble('));
-  assert.match(commit, /querySelector\(CARD_SCROLL_SELECTOR\)/);
-  assert.match(commit, /list\.scrollTop = scrollTop;/);
+  assert.match(commit, /previous\.querySelector\(selector\)/);
+  assert.match(commit, /list\.scrollTop = scrollTops\[index\];/);
   // Both containers are named, read from the declaration so a third cannot be added to
   // the card without this failing.
   const declaration = dock.match(/const CARD_SCROLL_SELECTOR = '([^']+)';/);

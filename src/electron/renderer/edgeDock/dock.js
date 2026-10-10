@@ -1620,12 +1620,15 @@ function commitCard(card, cellId) {
   const previous = contentLayer.querySelector('.edge-dock-card');
   const sameCard = previous?.dataset.cellId === cellId
     && previous?.dataset.breakdownMode === card.dataset.breakdownMode;
-  const scrollTop = sameCard ? previous.querySelector(CARD_SCROLL_SELECTOR)?.scrollTop || 0 : 0;
+  const selectors = CARD_SCROLL_SELECTOR.split(',').map(selector => selector.trim());
+  const scrollTops = selectors.map(selector => sameCard ? previous.querySelector(selector)?.scrollTop || 0 : 0);
   const resetSnapshot = cardResetAnimator.capture(contentLayer);
   contentLayer.replaceChildren(card);
   overflowText.refresh();
-  const list = card.querySelector(CARD_SCROLL_SELECTOR);
-  if (list) list.scrollTop = scrollTop;
+  selectors.forEach((selector, index) => {
+    const list = card.querySelector(selector);
+    if (list) list.scrollTop = scrollTops[index];
+  });
   // Measure reading targets only after mounting and restoring their scroll position.
   if (sameCard) overflowText.preserveReading(previous, card);
   cardResetAnimator.animate(card, resetSnapshot);
@@ -1644,6 +1647,20 @@ function clampBreakdownList(card) {
   const last = rows[BREAKDOWN_VISIBLE_ROWS - 1].getBoundingClientRect();
   const height = Math.ceil(last.bottom - first.top);
   if (height > 0) list.style.maxHeight = `${height}px`;
+}
+
+// Provider details and sessions have separate existing scroll containers. A
+// long session list must not squeeze even a short account/forecast block into
+// an unreadable strip. Measure its natural height before flex shrink, reserving
+// at most half the card so multiple accounts still leave room for sessions.
+function reserveAccountHeight(card, maxHeight) {
+  const accounts = card.querySelector(':scope > .edge-dock-accounts');
+  if (!accounts || !card.querySelector(':scope > .edge-dock-sessions') || !(maxHeight > 0)) return;
+  const shrink = accounts.style.flexShrink;
+  accounts.style.flexShrink = '0';
+  const naturalHeight = Math.ceil(accounts.getBoundingClientRect().height);
+  accounts.style.flexShrink = shrink;
+  if (naturalHeight > 0) accounts.style.minHeight = `${Math.min(naturalHeight, maxHeight / 2)}px`;
 }
 
 function fitCardTotal(card) {
@@ -1672,6 +1689,7 @@ function renderBubble(payload) {
   stagingLayer.replaceChildren(card);
   fitCardTotal(card);
   clampBreakdownList(card);
+  if (cell.kind !== 'stat') reserveAccountHeight(card, payload.maxCardHeight);
   const height = Math.min(Math.ceil(card.getBoundingClientRect().height), payload.maxCardHeight || Infinity);
   if (payload.placed?.cellId === cell.id && payload.placed.height === height) {
     commitCard(card, cell.id);
