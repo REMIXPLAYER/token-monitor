@@ -13491,22 +13491,15 @@ function drawTrayFallbackMark(ctx, value, x, y, size, color) {
 }
 
 function trayTextCanvasFont(item, fontSize, defaultWeight) {
-  const style = item?.fontStyle || 'normal';
-  const family = style === 'compactMono'
-    ? 'ui-monospace, ".AppleSystemUIFontMonospaced", "SFMono-Regular", "SF Mono", Menlo, monospace'
-    : '-apple-system, BlinkMacSystemFont, "SF Pro Text", "Segoe UI", sans-serif';
-  const weight = style === 'menubar' ? 700 : style === 'compactMono' ? 600 : defaultWeight;
-  return `${weight} ${fontSize}px ${family}`;
+  return window.TokenMonitorTrayTypography.font(item, fontSize, defaultWeight);
 }
 
 function trayTextHorizontalScale(item) {
-  if (item?.fontStyle === 'condensed') return 0.86;
-  if (item?.fontStyle === 'menubar') return 0.92;
-  return 1;
+  return window.TokenMonitorTrayTypography.horizontalScale(item);
 }
 
 function trayTextSpaceScale(item) {
-  return item?.fontStyle === 'compactMono' ? 0.55 : 1;
+  return window.TokenMonitorTrayTypography.spaceScale(item);
 }
 
 function trayTextRuns(ctx, text, item) {
@@ -13621,11 +13614,9 @@ function renderCustomTrayItemCanvas(item, height = 44, colors = {}, options = {}
 
   if (item.type === 'spacer') {
     const isDot = item.variant === 'dot';
-    const ratios = isDot
-      ? { narrow: 0.18, regular: 0.24, wide: 0.34 }
-      : { narrow: 0.07, regular: 0.14, wide: 0.27 };
+
     const canvas = document.createElement('canvas');
-    canvas.width = Math.max(2, Math.round(h * (ratios[item.size] || ratios.regular)));
+    canvas.width = window.TokenMonitorTrayTypography.spacerWidth(item, h);
     canvas.height = h;
     if (isDot) {
       const ctx = canvas.getContext('2d');
