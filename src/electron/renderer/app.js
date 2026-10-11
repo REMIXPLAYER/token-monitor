@@ -393,6 +393,28 @@ Object.assign(els, {
   backHomeButton: document.getElementById('backHomeButton'),
   systemGlassInputs: Array.from(document.querySelectorAll('input[name="systemGlassOption"]')),
   floatingBubbleOptions: document.getElementById('floatingBubbleOptions'),
+  notchFeature: document.getElementById('notchFeature'),
+  notchInput: document.getElementById('notchInput'),
+  notchOptions: document.getElementById('notchOptions'),
+  notchStyleInput: document.getElementById('notchStyleInput'),
+  notchShapeInputs: Array.from(document.querySelectorAll('input[name="notchShape"]')),
+  notchFollowTrayInput: document.getElementById('notchFollowTrayInput'),
+  notchSummaryInput: document.getElementById('notchSummaryInput'),
+  notchComposer: document.getElementById('notchComposer'),
+  notchComposerDetails: document.getElementById('notchComposerDetails'),
+  notchItemsComposer: document.getElementById('notchItemsComposer'),
+  notchDetailSideInput: document.getElementById('notchDetailSideInput'),
+  notchRunningIndicatorInput: document.getElementById('notchRunningIndicatorInput'),
+  notchHapticInput: document.getElementById('notchHapticInput'),
+  notchExpandOnApproachInput: document.getElementById('notchExpandOnApproachInput'),
+  notchHideSummaryInFullScreenInput: document.getElementById('notchHideSummaryInFullScreenInput'),
+  notchSizeInputs: Array.from(document.querySelectorAll('input[name="notchSize"]')),
+  notchCustomScaleInput: document.getElementById('notchCustomScaleInput'),
+  notchCustomScaleRow: document.getElementById('notchCustomScaleRow'),
+  notchMoreOptionsGroup: document.getElementById('notchMoreOptionsGroup'),
+  notchMoreOptionsToggle: document.getElementById('notchMoreOptionsToggle'),
+  notchMoreOptionsDetails: document.getElementById('notchMoreOptionsDetails'),
+  edgeDockComposerRow: document.getElementById('edgeDockComposerRow'),
   edgeDockFeature: document.getElementById('edgeDockFeature'),
   edgeDockInput: document.getElementById('edgeDockInput'),
   edgeDockOptions: document.getElementById('edgeDockOptions'),
@@ -8764,7 +8786,7 @@ function syncSettingsForm() {
   for (const input of els.floatingBubbleTriggerInputs || []) input.checked = input.value === floatingBubbleTrigger;
   if (els.floatingBubbleContentInput) els.floatingBubbleContentInput.value = normalizeTrayContentValue(state.settings.floatingBubbleContent);
   els.floatingBubbleOptions?.classList.toggle('hidden', state.settings.floatingBubbleEnabled !== true);
-  syncEdgeDockControls();
+  syncDockControls();
   const showTrayIcon = state.settings.showTrayIcon !== false;
   if (els.showTrayIconInput) els.showTrayIconInput.checked = showTrayIcon;
   els.trayModeInput.disabled = !showTrayIcon;
@@ -12539,6 +12561,7 @@ setupSettingsAccordion(els.advancedSettingsGroup, els.advancedSettingsToggle, el
 setupSettingsAccordion(els.themeAdvancedGroup, els.themeAdvancedToggle, els.themeAdvancedDetails);
 setupSettingsAccordion(els.themeVendorGroup, els.themeVendorToggle, els.themeVendorDetails);
 setupSettingsAccordion(els.edgeDockMoreOptionsGroup, els.edgeDockMoreOptionsToggle, els.edgeDockMoreOptionsDetails);
+setupSettingsAccordion(els.notchMoreOptionsGroup, els.notchMoreOptionsToggle, els.notchMoreOptionsDetails);
 for (const input of els.systemGlassInputs || []) {
   input.addEventListener('change', () => {
     if (input.checked) saveAppearanceFromControls();
@@ -12609,7 +12632,18 @@ function edgeDockAvailable() {
   return platform === 'darwin' || platform === 'win32';
 }
 
-function syncEdgeDockControls() {
+function syncDockSizeControls(surface) {
+  const sizes = (els[`${surface}SizeInputs`] || []).map((input) => input.value);
+  const size = sizes.includes(state.settings?.[`${surface}Size`]) ? state.settings[`${surface}Size`] : 'medium';
+  for (const input of els[`${surface}SizeInputs`] || []) input.checked = input.value === size;
+  els[`${surface}CustomScaleRow`]?.classList.toggle('hidden', size !== 'custom');
+  if (els[`${surface}CustomScaleInput`] && document.activeElement !== els[`${surface}CustomScaleInput`]) {
+    els[`${surface}CustomScaleInput`].value = String(Math.round((Number(state.settings?.[`${surface}CustomScale`]) || 1) * 100));
+    syncSliderRow(els[`${surface}CustomScaleInput`]);
+  }
+}
+
+function syncDockControls() {
   if (!els.edgeDockInput) return;
   const available = edgeDockAvailable();
   els.edgeDockFeature?.classList.toggle('hidden', !available);
@@ -12621,14 +12655,8 @@ function syncEdgeDockControls() {
   const modes = (els.edgeDockModeInputs || []).map((input) => input.value);
   const mode = modes.includes(state.settings?.edgeDockMode) ? state.settings.edgeDockMode : 'autoHide';
   for (const input of els.edgeDockModeInputs || []) input.checked = input.value === mode;
-  const sizes = (els.edgeDockSizeInputs || []).map((input) => input.value);
-  const size = sizes.includes(state.settings?.edgeDockSize) ? state.settings.edgeDockSize : 'medium';
-  for (const input of els.edgeDockSizeInputs || []) input.checked = input.value === size;
-  els.edgeDockCustomScaleRow?.classList.toggle('hidden', size !== 'custom');
-  if (els.edgeDockCustomScaleInput && document.activeElement !== els.edgeDockCustomScaleInput) {
-    els.edgeDockCustomScaleInput.value = String(Math.round((Number(state.settings?.edgeDockCustomScale) || 1) * 100));
-    syncSliderRow(els.edgeDockCustomScaleInput);
-  }
+  syncDockSizeControls('edgeDock');
+  syncDockSizeControls('notch');
   els.edgeDockHapticRow?.classList.toggle('hidden', state.appInfo?.platform !== 'darwin');
   if (els.edgeDockHapticInput) els.edgeDockHapticInput.checked = state.settings?.edgeDockHaptic !== false;
   if (els.edgeDockWarnColorsInput) els.edgeDockWarnColorsInput.checked = state.settings?.edgeDockWarnColors === true;
@@ -12636,12 +12664,28 @@ function syncEdgeDockControls() {
   if (els.edgeDockMacBackdropInput) {
     els.edgeDockMacBackdropInput.value = macBackdropApi.normalizeEdgeDockBackdropMode(state.settings?.edgeDockMacBackdrop);
   }
+  const notchEnabled = state.appInfo?.platform === 'darwin' && state.settings?.notchEnabled === true;
+  els.notchFeature?.classList.toggle('hidden', state.appInfo?.platform !== 'darwin');
+  if (els.notchInput) els.notchInput.checked = notchEnabled;
+  els.notchOptions?.classList.toggle('hidden', !notchEnabled);
+  if (els.notchStyleInput) els.notchStyleInput.value = state.settings?.notchStyle || 'black';
+  for (const input of els.notchShapeInputs) input.checked = input.value === (state.settings?.notchShape || 'auto');
+  if (els.notchFollowTrayInput) els.notchFollowTrayInput.checked = state.settings?.notchFollowTray !== false;
+  if (els.notchSummaryInput) els.notchSummaryInput.checked = state.settings?.notchSummaryEnabled !== false;
+  if (els.notchDetailSideInput) els.notchDetailSideInput.value = state.settings?.notchDetailSide || 'right';
+  if (els.notchRunningIndicatorInput) els.notchRunningIndicatorInput.checked = state.settings?.notchRunningIndicatorEnabled === true;
+  if (els.notchHapticInput) els.notchHapticInput.checked = state.settings?.notchHaptic === true;
+  if (els.notchExpandOnApproachInput) els.notchExpandOnApproachInput.checked = state.settings?.notchExpandOnApproach !== false;
+  if (els.notchHideSummaryInFullScreenInput) els.notchHideSummaryInFullScreenInput.checked = state.settings?.notchHideSummaryInFullScreen !== false;
+  els.edgeDockComposerRow?.classList.toggle('hidden', !enabled);
   if (enabled) edgeDockComposer?.render();
+  if (notchEnabled) notchItemsComposer?.render();
 }
 
-const edgeDockComposer = els.edgeDockComposer && window.TokenMonitorEdgeDockComposer
-  ? window.TokenMonitorEdgeDockComposer.createEdgeDockComposer({
-    root: els.edgeDockComposer,
+function createDockItemsComposer(root, itemsKey) {
+  return root && window.TokenMonitorEdgeDockComposer
+    ? window.TokenMonitorEdgeDockComposer.createEdgeDockComposer({
+    root, itemsKey,
     t,
     itemsApi: window.TokenMonitorEdgeDockItems,
     presentationApi: window.TokenMonitorEdgeDockPresentation,
@@ -12678,10 +12722,48 @@ const edgeDockComposer = els.edgeDockComposer && window.TokenMonitorEdgeDockComp
     })
   })
   : null;
+}
+const edgeDockComposer = createDockItemsComposer(els.edgeDockComposer, 'edgeDockItems');
+const notchItemsComposer = createDockItemsComposer(els.notchItemsComposer, 'notchItems');
+
+els.notchSummaryInput?.addEventListener('change', () => {
+  void saveSettings({ notchSummaryEnabled: els.notchSummaryInput.checked });
+});
+els.notchHideSummaryInFullScreenInput?.addEventListener('change', () => {
+  void saveSettings({ notchHideSummaryInFullScreen: els.notchHideSummaryInFullScreenInput.checked });
+});
+els.notchExpandOnApproachInput?.addEventListener('change', () => {
+  void saveSettings({ notchExpandOnApproach: els.notchExpandOnApproachInput.checked });
+});
+els.notchRunningIndicatorInput?.addEventListener('change', () => {
+  void saveSettings({ notchRunningIndicatorEnabled: els.notchRunningIndicatorInput.checked });
+});
+els.notchDetailSideInput?.addEventListener('change', () => {
+  void saveSettings({ notchDetailSide: els.notchDetailSideInput.value });
+});
+els.notchInput?.addEventListener('change', () => {
+  state.settings.notchEnabled = els.notchInput.checked;
+  syncDockControls();
+  refreshTrayComposers();
+  void saveSettings({ notchEnabled: els.notchInput.checked });
+});
+for (const input of els.notchShapeInputs) {
+  input.addEventListener('change', () => {
+    if (input.checked) void saveSettings({ notchShape: input.value });
+  });
+}
+els.notchStyleInput?.addEventListener('change', () => {
+  void saveSettings({ notchStyle: els.notchStyleInput.value });
+});
+els.notchFollowTrayInput?.addEventListener('change', () => {
+  state.settings.notchFollowTray = els.notchFollowTrayInput.checked;
+  refreshTrayComposers();
+  void saveSettings({ notchFollowTray: els.notchFollowTrayInput.checked });
+});
 
 els.edgeDockInput?.addEventListener('change', () => {
   state.settings.edgeDockEnabled = els.edgeDockInput.checked;
-  els.edgeDockOptions?.classList.toggle('hidden', !els.edgeDockInput.checked);
+  syncDockControls();
   void saveSettings({ edgeDockEnabled: els.edgeDockInput.checked });
 });
 for (const input of els.edgeDockSideInputs || []) {
@@ -12698,6 +12780,9 @@ els.edgeDockRunningIndicatorInput?.addEventListener('change', () => {
 els.edgeDockMacBackdropInput?.addEventListener('change', () => {
   void saveSettings({ edgeDockMacBackdrop: macBackdropApi.normalizeEdgeDockBackdropMode(els.edgeDockMacBackdropInput.value) });
 });
+els.notchHapticInput?.addEventListener('change', () => {
+  void saveSettings({ notchHaptic: els.notchHapticInput.checked });
+});
 els.edgeDockHapticInput?.addEventListener('change', () => {
   void saveSettings({ edgeDockHaptic: els.edgeDockHapticInput.checked });
 });
@@ -12706,22 +12791,25 @@ for (const input of els.edgeDockModeInputs || []) {
     if (input.checked) void saveSettings({ edgeDockMode: input.value });
   });
 }
-for (const input of els.edgeDockSizeInputs || []) {
-  input.addEventListener('change', () => {
-    if (!input.checked) return;
-    els.edgeDockCustomScaleRow?.classList.toggle('hidden', input.value !== 'custom');
-    void saveSettings({ edgeDockSize: input.value });
+for (const surface of ['edgeDock', 'notch']) {
+  for (const input of els[`${surface}SizeInputs`] || []) {
+    input.addEventListener('change', () => {
+      if (!input.checked) return;
+      els[`${surface}CustomScaleRow`]?.classList.toggle('hidden', input.value !== 'custom');
+      void saveSettings({ [`${surface}Size`]: input.value });
+    });
+  }
+  // Like the Zoom slider: the dock previews each step while the slider is dragged
+  // and the size is saved on release, since a save redraws the settings form.
+  els[`${surface}CustomScaleInput`]?.addEventListener('input', () => {
+    syncSliderRow(els[`${surface}CustomScaleInput`]);
+    window.tokenMonitor.previewAppearance?.({ [`${surface}CustomScale`]: Number(els[`${surface}CustomScaleInput`].value) / 100 }).catch(() => {});
+  });
+  els[`${surface}CustomScaleInput`]?.addEventListener('change', () => {
+    void saveSettings({ [`${surface}CustomScale`]: Number(els[`${surface}CustomScaleInput`].value) / 100 });
   });
 }
-// Like the Zoom slider: the dock previews each step while the slider is dragged
-// and the size is saved on release, since a save redraws the settings form.
-els.edgeDockCustomScaleInput?.addEventListener('input', () => {
-  syncSliderRow(els.edgeDockCustomScaleInput);
-  window.tokenMonitor.previewAppearance?.({ edgeDockCustomScale: Number(els.edgeDockCustomScaleInput.value) / 100 }).catch(() => {});
-});
-els.edgeDockCustomScaleInput?.addEventListener('change', () => {
-  void saveSettings({ edgeDockCustomScale: Number(els.edgeDockCustomScaleInput.value) / 100 });
-});
+
 
 for (const input of els.floatingBubbleTriggerInputs || []) {
   input.addEventListener('change', () => {
@@ -13877,6 +13965,7 @@ async function maybeUpdateBarsIcon(options = {}) {
   if (options.refreshComposers !== false && isSettingsSurfaceVisible()) {
     refreshTrayComposers();
     if (edgeDockAvailable() && state.settings?.edgeDockEnabled === true) edgeDockComposer?.render();
+    if (state.appInfo?.platform === 'darwin' && state.settings?.notchEnabled === true) notchItemsComposer?.render();
   } else {
     syncCustomTrayClockTimer();
   }
@@ -14083,6 +14172,9 @@ function renderStandardTrayPreview(mode, stats) {
 }
 
 function trayComposerPreview(surface) {
+  if (surface === 'notch') {
+    return { src: renderCustomTrayLayout(statsForTrayComposer(), state.settings?.notchCustomLayout, currentFloatingBubbleBitmapHeight(), floatingBubbleGeneratedColors(), { showProviderBadge: false }) };
+  }
   const isTray = surface === 'tray';
   const contentKey = isTray ? 'trayContent' : 'floatingBubbleContent';
   const layoutKey = isTray ? 'trayCustomLayout' : 'floatingBubbleCustomLayout';
@@ -14128,8 +14220,9 @@ function activateTrayComposer(surface) {
 
 function createTrayComposer(surface) {
   const isTray = surface === 'tray';
-  const root = isTray ? els.trayComposer : els.floatingBubbleComposer;
-  const layoutKey = isTray ? 'trayCustomLayout' : 'floatingBubbleCustomLayout';
+  const isNotch = surface === 'notch';
+  const root = isNotch ? els.notchComposer : isTray ? els.trayComposer : els.floatingBubbleComposer;
+  const layoutKey = isNotch ? 'notchCustomLayout' : isTray ? 'trayCustomLayout' : 'floatingBubbleCustomLayout';
   const contentKey = isTray ? 'trayContent' : 'floatingBubbleContent';
   return window.TokenMonitorTrayComposer.createTrayComposer({
     root,
@@ -14150,7 +14243,7 @@ function createTrayComposer(surface) {
       showProviderBadge: isTray && state.settings?.showTrayProviderBadge === true
     }),
     getPreview: () => trayComposerPreview(surface),
-    isEditable: () => state.settings?.[contentKey] === 'custom',
+    isEditable: () => isNotch || state.settings?.[contentKey] === 'custom',
     onCustomize: () => activateTrayComposer(surface),
     providerChoices: trayComposerProviderChoices,
     accountChoices: trayComposerAccountChoices,
@@ -14160,6 +14253,7 @@ function createTrayComposer(surface) {
       state.settings[layoutKey] = trayLayoutApi.normalizeTrayLayout(nextLayout);
       observeDisplayLiveTokenRates(state.stats);
       if (isTray) void maybeUpdateBarsIcon({ refreshComposers: commit });
+      else if (isNotch) { if (commit) refreshTrayComposers(); }
       else {
         renderFloatingBubbleContent();
         if (commit) refreshTrayComposers();
@@ -14192,7 +14286,8 @@ function syncCustomTrayClockTimer() {
 function refreshTrayComposers() {
   const surfaces = [
     { id: 'tray', root: els.trayComposer, visible: state.settings?.showTrayIcon !== false },
-    { id: 'floatingBubble', root: els.floatingBubbleComposer, visible: state.settings?.floatingBubbleEnabled === true }
+    { id: 'floatingBubble', root: els.floatingBubbleComposer, visible: state.settings?.floatingBubbleEnabled === true },
+    { id: 'notch', root: els.notchComposer, visibilityRoot: els.notchComposerDetails, visible: state.appInfo?.platform === 'darwin' && state.settings?.notchEnabled === true && state.settings?.notchFollowTray === false }
   ];
   window.TokenMonitorTrayComposer.syncTrayComposerSurfaces(
     surfaces,

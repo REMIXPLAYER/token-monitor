@@ -104,6 +104,13 @@ test('a long detail total shrinks beside its compact reading instead of wrapping
   fitCardTotal({ querySelector: () => row });
   assert.equal(number.style.fontSize, '24px');
   number.style = {};
+  number.getBoundingClientRect = () => ({ width: 236 * 1.6 });
+  compact.getBoundingClientRect = () => ({ width: 47 * 1.6 });
+  fitCardTotal({ querySelector: () => row }, 1.6);
+  assert.equal(number.style.fontSize, '24px', 'text zoom must not change the logical fit');
+  number.getBoundingClientRect = () => ({ width: 236 });
+  compact.getBoundingClientRect = () => ({ width: 47 });
+  number.style = {};
   row.querySelector = (selector) => selector === 'strong' ? number : null;
   fitCardTotal({ querySelector: () => row });
   assert.equal(number.style.fontSize, undefined);
@@ -114,7 +121,7 @@ test('a long detail total shrinks beside its compact reading instead of wrapping
 
 test('a card commits after its reported height is clamped to the work area', () => {
   const dock = readRendererFile(path.join('edgeDock', 'dock.js'));
-  const source = dock.slice(dock.indexOf('function renderBubble('), dock.indexOf('// ---- Wiring'));
+  const source = dock.slice(dock.indexOf('function renderBubble('), dock.indexOf('// ---- Top notch'));
   for (const kind of ['provider', 'stat']) {
     for (const { measured, maxCardHeight, expected } of [
       // Chromium at 175% scaling can measure a max-height: 851px card this way.
@@ -131,7 +138,7 @@ test('a card commits after its reported height is clamped to the work area', () 
         ${source}
         return renderBubble;
       `)({
-        root: { dataset: {} },
+        root: { dataset: {}, classList: { toggle() {} } },
         stagingLayer: { replaceChildren() {} },
         providerCard: () => card,
         statCard: () => card,
@@ -992,7 +999,7 @@ test('the sessions rate line carries no unreachable tooltip', () => {
 // that card reset it to the top, mid-read.
 test('provider detail reserves natural account height without exceeding half the card', () => {
   const dock = readRendererFile(path.join('edgeDock', 'dock.js'));
-  const source = dock.slice(dock.indexOf('function reserveAccountHeight('), dock.indexOf('function fitCardTotal('));
+  const source = dock.slice(dock.indexOf('function reserveAccountHeight('), dock.indexOf('// The shared popover'));
   const reserve = Function(`${source}; return reserveAccountHeight;`)();
   for (const [natural, cap, expected] of [[75.15, 570, '76px'], [1200, 570, '285px'], [75.15, 228, '76px']]) {
     const accounts = { style: { flexShrink: '' }, getBoundingClientRect: () => ({ height: accounts.style.flexShrink === '0' ? natural : 48 }) };
@@ -1061,7 +1068,7 @@ test('the self-repaint cadence matches what each surface actually needs', () => 
   const period = dock.slice(dock.indexOf('const BUBBLE_REPAINT_MS'), dock.indexOf('function repaintSelf('));
   // The card keeps the 30s it always had.
   assert.match(period, /const BUBBLE_REPAINT_MS = 30_000;/);
-  assert.match(period, /const period = surface === 'bubble' \? BUBBLE_REPAINT_MS : 0;/);
+  assert.match(period, /state\.payload\?\.summary\?\.needsClock/);
   // A rail only wakes for a sessions expiry, and reports 0 when there is none - which
   // is what leaves its timer unarmed rather than polling it.
   assert.match(period, /if \(!surfacesShowingSessions\(\)\) return 0;/);
@@ -2679,4 +2686,23 @@ test('a larger dock that would not fit shrinks to the largest size that keeps fu
   assert.equal(edgeDockFittingScale({ workArea, cellKinds: ['provider'], scale: 1.25 }), 1.25, 'a dock that fits keeps its size');
   assert.equal(edgeDockFittingScale({ workArea, cellKinds: kinds, scale: 0.85 }), 0.85, 'a smaller one is left alone');
   assert.equal(edgeDockFittingScale({ workArea: { ...workArea, height: 400 }, cellKinds: kinds, scale: 1.5 }), 1, 'one too long even at 100% keeps today\'s density');
+});
+
+
+test('Notch detail can retain aggregate failures without changing rail visibility or hidden accounts', () => {
+  const healthy = { provider: 'codex', status: 'ok', accountKey: 'healthy', windows: [{ kind: 'session', remainingPercent: 80 }] };
+  const failures = ['unauthorized', 'rateLimited', 'sourceRateLimited', 'unavailable', 'error', 'notConfigured']
+    .map((status) => ({ provider: 'codex', status, accountKey: status, windows: [] }));
+  const localOnly = { provider: 'codex', status: 'unauthorized', accountKey: 'local-only', windows: [] };
+  const stats = { limits: { providers: [healthy, ...failures] }, devices: [{ deviceId: 'here', limits: { providers: [localOnly] } }] };
+  const options = { items: [{ type: 'limit', provider: 'codex', hiddenAccounts: ['error'] }], localDeviceId: 'here' };
+  const rail = buildEdgeDockCells(stats, options)[0];
+  const top = buildEdgeDockCells(stats, { ...options, includeUnavailableAccounts: true })[0];
+  assert.deepEqual(rail.accounts.map((a) => a.accountKey), ['healthy']);
+  assert.equal(top.accountCount, 6);
+  assert.deepEqual(top.accounts.map((a) => a.accountKey), ['healthy', 'unauthorized', 'rateLimited', 'sourceRateLimited', 'unavailable', 'notConfigured']);
+  assert.equal(top.headlineAccount, rail.headlineAccount);
+  assert.equal(top.remainingPercent, 80);
+  assert.ok(top.accounts.slice(1).every((a) => a.headlineRemaining === null));
+  assert.ok(top.subscriptionAccounts.some((a) => a.accountKey === 'local-only'), 'identity-only records still cannot become display rows');
 });

@@ -70,7 +70,20 @@ class FakeElement {
   setAttribute(name, value) { this.attributes[name] = value; }
   removeAttribute(name) { delete this.attributes[name]; }
   replaceChildren(...children) { this.children = [...children]; }
-  querySelector(selector) { return this.find(selector.replace('.', '')); }
+  querySelector(selector) {
+    if (selector === '.limit-window-text > span') return this.find('limit-window-text')?.children[0] || null;
+    return this.querySelectorAll(selector)[0] || null;
+  }
+  querySelectorAll(selector) {
+    const names = selector.split(',').map((part) => part.trim().replace('.', ''));
+    return [...this.walk()].slice(1).filter((node) => names.some((name) => node.classNames.has(name)));
+  }
+  replaceWith(node) {
+    const index = this.parent.children.indexOf(this);
+    this.parent.children.splice(index, 1, node);
+    node.parent = this.parent;
+    this.parent = null;
+  }
 
   // Depth-first walk, so an assertion can ask what the card actually drew
   // without knowing which provider branch nested it where.
@@ -1248,7 +1261,7 @@ test('a subscription bound to a hidden account does not decorate the row that is
   );
 
   const dock = fs.readFileSync(path.join(root, 'src/electron/renderer/edgeDock/dock.js'), 'utf8');
-  assert.match(dock, /subscriptionAccounts: \(\) => state\.payload\?\.cell\?\.subscriptionAccounts \|\| \[\],/);
+  assert.match(dock, /subscriptionAccounts: \(\) => cell\(\)\?\.subscriptionAccounts \|\| \[\],/);
 });
 
 // Hiding is not the only display rule that narrows the universe. The rail lists
@@ -1464,7 +1477,7 @@ test('the dock hands the shared view the device context a cell carries', () => {
   const wiring = balancedCall(dock, 'createLimitWindowsView({');
   assert.match(
     wiring,
-    /provenanceContext: \(\) => state\.payload\?\.cell\?\.provenanceContext/,
+    /provenanceContext: \(\) => cell\(\)\?\.provenanceContext/,
     'the dock card must read the context off the cell it renders'
   );
 });
@@ -1693,4 +1706,216 @@ test('with every item unchecked, Home and the picker keep no window the card dre
     }
   }
   assert.deepEqual(problems, []);
+});
+
+
+function notchAdapter() {
+  const source = fs.readFileSync(path.join(root, 'src/electron/renderer/edgeDock/dock.js'), 'utf8');
+  const start = source.indexOf('function notchQuotaColor(');
+  const end = source.indexOf('function providerUsageNode(', start);
+  const context = {
+    el: (_tag, classes, text = '') => { const node = new FakeElement(_tag); node.className = classes; node.textContent = text; return node; },
+    limitResetMotionApi,
+    limitPresentationApi,
+    limitProviderColor: () => '#888888',
+    readableColor: (color) => color,
+    providerLabel: (id) => id,
+    t: (key) => key
+  };
+  vm.runInNewContext(source.slice(start, end), context);
+  return context;
+}
+
+test('notch Codex overview follows the shared current-account headline and preserves other account quotas in detail', () => {
+  const records = [
+    { provider: 'codex', accountKey: 'first', accountEmail: 'first@example.test', status: 'ok', windows: [{ kind: 'session', remainingPercent: 5 }, { kind: 'weekly', remainingPercent: 10 }] },
+    { provider: 'codex', accountKey: 'current', accountEmail: 'current@example.test', status: 'ok', windows: [{ kind: 'session', remainingPercent: 80 }, { kind: 'weekly', remainingPercent: 90 }] }
+  ];
+  const options = {
+    items: [{ type: 'limit', provider: 'codex' }],
+    codexManagedAccounts: [{ id: 'current-managed', accountKey: 'current' }],
+    activeCodexAccountId: 'current-managed'
+  };
+  const adapter = notchAdapter();
+  const view = dockView();
+  const cell = buildEdgeDockCells({ limits: { providers: records } }, options)[0];
+  const overview = adapter.notchOverviewCard(cell, view);
+  assert.equal(overview.querySelectorAll('.home-limit-account').length, 1);
+  assert.match(overview.text, /current@example.test/);
+  assert.doesNotMatch(overview.text, /first@example.test/);
+  assert.equal(cardRows(overview).length, 2);
+  const detail = view.renderLimitProviderGroup('codex', 'Codex', records, '#888888');
+  adapter.omitNotchQuotaRows(detail, cell);
+  const rows = detail.querySelectorAll('.limit-account-row');
+  assert.equal(adapter.notchQuotaRows(rows[0]).length, 2, 'other account keeps both meters');
+  assert.equal(adapter.notchQuotaRows(rows[1]).length, 0, 'only displayed account is deduplicated');
+  assert.match(detail.text, /first@example.test/);
+  assert.match(detail.text, /current@example.test/);
+  const lowest = buildEdgeDockCells({ limits: { providers: records } }, {
+    ...options, items: [{ type: 'limit', provider: 'codex', accountMode: 'lowest' }]
+  })[0];
+  assert.match(adapter.notchOverviewCard(lowest, view).text, /first@example.test/);
+});
+
+test('notch Codex overview finds a current headline outside the original detail account cap', () => {
+  const records = Array.from({ length: 51 }, (_, index) => ({
+    provider: 'codex', accountKey: `account-${index}`, accountEmail: `account-${index}@example.test`,
+    status: 'ok', windows: [{ kind: 'session', remainingPercent: 80 }]
+  }));
+  const cell = buildEdgeDockCells({ limits: { providers: records } }, {
+    items: [{ type: 'limit', provider: 'codex' }],
+    codexManagedAccounts: [{ id: 'managed-50', accountKey: 'account-50' }],
+    activeCodexAccountId: 'managed-50'
+  })[0];
+  assert.equal(cell.accounts.length, 50);
+  const overview = notchAdapter().notchOverviewCard(cell, dockView());
+  assert.equal(overview.querySelectorAll('.home-limit-account').length, 1);
+  assert.match(overview.text, /account-50@example.test/);
+});
+
+test('notch overview keeps every quota item including non-meter balances and unlimited plans', () => {
+  const adapter = notchAdapter();
+  const { LIMIT_PROVIDER_IDS } = require('../../src/shared/limits/providers');
+  for (const provider of LIMIT_PROVIDER_IDS) {
+    for (const record of shapeRecords(provider)) {
+      const view = dockView();
+      const full = view.renderProviderWindows(record, '#888888');
+      const expected = cardRows(full).filter((row) => !row.classNames.has('limit-window-note')
+        || row.find('limit-meter') || (row.dataset.usageItem && !['resets', 'spend'].includes(row.dataset.usageItem)));
+      const overview = adapter.notchOverviewCard({ provider, accounts: [{ record }] }, view);
+      assert.deepEqual(cardRows(overview).map((row) => row.dataset.usageItem), expected.map((row) => row.dataset.usageItem), provider);
+      const detail = adapter.omitNotchQuotaRows(full);
+      assert.equal(adapter.notchQuotaRows(detail).length, 0, `${provider}: detail must not repeat quotas`);
+      const keyedDetail = new FakeElement('section');
+      keyedDetail.append(view.renderLimitProviderSolo(provider, provider, record, '#888888'));
+      adapter.omitNotchQuotaRows(keyedDetail, { provider, accounts: [{ record }] });
+      assert.equal(adapter.notchQuotaRows(keyedDetail).length, 0, `${provider}: keyed detail must not repeat quotas`);
+    }
+  }
+});
+
+test('notch moves credit detail info to the right without dropping its quota or changing ordinary dock cards', () => {
+  const adapter = notchAdapter();
+  const record = { provider: 'cline', status: 'ok', windows: [
+    { kind: 'billing', metric: 'credits', label: 'Credits', remaining: 0.5, currency: 'CREDITS', showMeter: false },
+    { kind: 'billing', metric: 'spend', label: 'Usage credits', used: 0.13, currency: 'USD', showMeter: false }
+  ] };
+  const view = dockView();
+  const original = view.renderProviderWindows(record, '#888888');
+  const overview = adapter.notchOverviewCard({ provider: 'cline', accounts: [{ record }] }, view);
+  assert.match(overview.text, /0\.50/);
+  assert.equal(overview.querySelectorAll('.limit-detail-tooltip-wrap').length, 0);
+  const detail = adapter.omitNotchQuotaRows(view.renderProviderWindows(record, '#888888'));
+  assert.doesNotMatch(detail.text, /0\.50/);
+  assert.match(detail.text, /Month spent/);
+  assert.equal(detail.querySelectorAll('.limit-detail-tooltip-wrap').length, 1);
+  assert.match(original.text, /0\.50/);
+  assert.match(original.text, /Month spent/);
+});
+
+
+test('notch detail render hold retains the current provider but releases when the hovered provider changes', () => {
+  const source = fs.readFileSync(path.join(root, 'src/electron/renderer/edgeDock/dock.js'), 'utf8');
+  const start = source.indexOf('function deferBubbleRender(');
+  const end = source.indexOf('bridge.onRender(render);', start);
+  const context = {
+    surface: 'bubble', state: { payload: { omitQuotaBars: true, cell: { id: 'cline' } } },
+    contentLayer: { querySelector: () => ({ dataset: { cellId: 'codex' } }) },
+    codexAccountControl: { deferRender: () => false },
+    limitTooltipShouldHoldRender: () => true,
+    limitTooltip: { pending: false }
+  };
+  vm.runInNewContext(source.slice(start, end), context);
+  assert.equal(context.deferBubbleRender(), false, 'focused tooltip on old Codex card must not block Cline sizing');
+  context.state.payload.cell.id = 'codex';
+  assert.equal(context.deferBubbleRender(), true, 'same provider must keep the existing tooltip while data refreshes');
+  context.state.payload.omitQuotaBars = false;
+  context.state.payload.cell.id = 'cline';
+  assert.equal(context.deferBubbleRender(), true, 'ordinary EdgeDock keeps its existing behavior');
+});
+
+
+test('notch overview names each selected provider even when no account reports data', () => {
+  const adapter = notchAdapter();
+  const { LIMIT_PROVIDER_IDS } = require('../../src/shared/limits/providers');
+  for (const provider of LIMIT_PROVIDER_IDS) {
+    const overview = adapter.notchOverviewCard({ provider, accounts: [] }, dockView());
+    assert.equal(overview.find('home-list-name')?.textContent, provider);
+    assert.match(overview.text, /edgeDock.unavailable/);
+    assert.equal(cardRows(overview).length, 0);
+  }
+});
+
+
+test('notch quota ink adapts low-contrast brands without recoloring readable brands', () => {
+  const source = fs.readFileSync(path.join(root, 'src/electron/renderer/edgeDock/dock.js'), 'utf8');
+  const colors = source.slice(source.indexOf('function parseColor('), source.indexOf('function limitProviderColor('));
+  const helper = source.slice(source.indexOf('function notchQuotaColor('), source.indexOf('function notchOverviewCard('));
+  let surface = '0, 0, 0', text = '#ffffff';
+  const context = {
+    document: { documentElement: {} },
+    getComputedStyle: () => ({ getPropertyValue: (key) => key === '--glass-rgb' ? surface : text })
+  };
+  vm.runInNewContext(colors + helper, context);
+  for (const color of ['#000000', '#000', '#16191e']) assert.equal(context.notchQuotaColor(color), text);
+  for (const color of ['#49a3b0', '#cc7c5e', '#4285f4']) assert.equal(context.notchQuotaColor(color), color);
+  surface = '255, 255, 255'; text = '#111111';
+  assert.equal(context.notchQuotaColor('#000000'), '#000000', 'black remains readable on a light surface');
+  assert.equal(context.notchQuotaColor('#ffffff'), text, 'white adapts on a light surface');
+});
+
+
+test('Notch shows the shared representative and deduplicates only its quotas for non-Codex accounts', () => {
+  const adapter = notchAdapter();
+  for (const provider of ['claude', 'mimo']) {
+    const records = [80, 10].map((remainingPercent, index) => ({
+      provider, status: 'ok', accountKey: `${provider}-${index}`, accountEmail: `${index}@example.test`,
+      ...(provider === 'mimo' ? { source: index ? 'local' : 'api', sourceDetail: index ? 'app' : '', accountLabel: index ? 'Desktop Membership' : 'Console' } : {}),
+      windows: [{ kind: 'weekly', remainingPercent }]
+    }));
+    const cell = buildEdgeDockCells({ limits: { providers: records } }, { items: [{ type: 'limit', provider }] })[0];
+    const view = dockView();
+    const overview = adapter.notchOverviewCard(cell, view);
+    assert.equal(overview.querySelectorAll('.home-limit-account').length, 1, provider);
+    assert.equal(overview.querySelector('.home-limit-account').dataset.limitMotionKey, cell.headlineAccount);
+    const detail = view.renderLimitProviderGroup(provider, provider, records, '#888888');
+    adapter.omitNotchQuotaRows(detail, cell);
+    const other = detail.querySelectorAll('.limit-row').find((row) => row.dataset.limitMotionKey === limitResetMotionApi.providerKey(records[0]));
+    const selected = detail.querySelectorAll('.limit-row').find((row) => row.dataset.limitMotionKey === cell.headlineAccount);
+    assert.equal(adapter.notchQuotaRows(other).length, 1, `${provider}: other account/product retains quotas`);
+    assert.equal(adapter.notchQuotaRows(selected).length, 0, `${provider}: selected quotas alone are deduplicated`);
+  }
+});
+
+test('Notch retained failures use shared status rows without adding a fake main quota', () => {
+  const adapter = notchAdapter();
+  for (const status of ['unauthorized', 'rateLimited', 'sourceRateLimited', 'unavailable', 'error', 'notConfigured']) {
+    const record = { provider: 'codex', status, accountKey: status, windows: [] };
+    const cell = buildEdgeDockCells({ limits: { providers: [record] } }, { items: [{ type: 'limit', provider: 'codex' }], includeUnavailableAccounts: true })[0];
+    const view = dockView();
+    const overview = adapter.notchOverviewCard(cell, view);
+    assert.equal(overview.querySelectorAll('.home-limit-account').length, 0, status);
+    assert.equal(adapter.notchQuotaRows(overview).length, 0, status);
+    const detail = view.renderLimitProviderSolo('codex', 'Codex', cell.accounts[0].record, '#888888');
+    const expected = view.limitAccountPlan(record);
+    assert.ok(expected && detail.text.includes(expected), status);
+    adapter.omitNotchQuotaRows(detail, cell);
+    assert.ok(detail.text.includes(expected), `${status}: deduplication must preserve status`);
+    assert.equal(adapter.notchQuotaRows(detail).length, 0, status);
+  }
+});
+
+
+test('Notch stale overview keeps its plan and quota with the shared status label', () => {
+  const adapter = notchAdapter();
+  const view = dockView();
+  const record = { provider: 'codex', status: 'ok', stale: true, planLabel: 'Pro', windows: [{ kind: 'session', remainingPercent: 64 }] };
+  const render = (provider) => adapter.notchOverviewCard({ provider: 'codex', accounts: [{ record: provider }] }, view);
+  const stale = render(record);
+  const fresh = render({ ...record, stale: false });
+  assert.ok(stale.querySelector('.home-limit-account').classNames.has('stale'));
+  assert.equal(stale.querySelector('.home-limit-plan').textContent, 'Pro · Stale');
+  assert.equal(fresh.querySelector('.home-limit-plan').textContent, 'Pro');
+  assert.equal(cardRows(stale).length, cardRows(fresh).length);
+  assert.equal(stale.querySelector('.home-limit-account-head').children.length, fresh.querySelector('.home-limit-account-head').children.length);
 });
