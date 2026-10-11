@@ -209,10 +209,10 @@ test('top-only real provider projection updates while the side controller is abs
   const input = stats();
   const settings = { edgeDockEnabled: false, notchEnabled: true, limitProviders: 'codex', trayContent: 'tokens' };
   const main = fs.readFileSync(path.join(__dirname, '../../src/electron/main.js'), 'utf8');
-  const start = main.indexOf('function updateDockCells(');
+  const start = main.indexOf('function updateEdgeDockCells(');
   const code = main.slice(start, main.indexOf('\n// Hand cells', start))
     + main.slice(main.indexOf('function pushNotchCells('), main.indexOf('// The soonest moment any sessions cell'));
-  const update = vm.runInNewContext(`${code}; updateDockCells`, {
+  const update = vm.runInNewContext(`${code}; updateEdgeDockCells`, {
     edgeDockController: null, notchController: controller,
     settings: {}, scheduleSessionExpiry() {}, notchLastCells: [],
     edgeDockCellsFor: (value) => buildEdgeDockCells(value, { limitProviders: 'codex' }),
@@ -668,7 +668,7 @@ test('notch detail side mirrors placement and clamps both placed and measured he
 
 test('top and side reuse projection with independent ordered selections', () => {
   const source = fs.readFileSync(path.join(__dirname, '../../src/electron/main.js'), 'utf8');
-  const fn = source.slice(source.indexOf('function edgeDockCellsFor('), source.indexOf('function updateDockCells('));
+  const fn = source.slice(source.indexOf('function edgeDockCellsFor('), source.indexOf('function updateEdgeDockCells('));
   const settings = { edgeDockItems: [{ type: 'stat', metric: 'today' }], notchItems: [{ type: 'stat', metric: 'sessions', groupBy: 'client' }] };
   const context = { settings, buildEdgeDockCells, refreshEdgeDockDerivedPeriods() {}, refreshEdgeDockForecast() {}, syncCodexPresentationActiveAccount() {}, edgeDockDerivedPeriods: {}, edgeDockForecastWanted: () => false, edgeDockForecast: null, syncProvenanceActive: () => false, codexAccountsForRenderer: () => [], codexPresentationPendingAccountId: null, codexPresentationActiveAccountId: null, edgeDockLiveRateSample: () => null };
   vm.createContext(context);vm.runInContext(fn, context);

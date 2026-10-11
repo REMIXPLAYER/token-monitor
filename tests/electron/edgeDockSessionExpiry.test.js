@@ -73,7 +73,7 @@ test('the edge dock arms a re-projection for the moment its running reading expi
   // Asserted per path rather than by counting matches: the declaration itself contains
   // the call shape, so a count would still pass with only one of the two call sites -
   // which is the regression this guard exists for.
-  const statsPath = main.slice(main.indexOf('function updateDockCells('), main.indexOf('function pushEdgeDockCells('));
+  const statsPath = main.slice(main.indexOf('function updateEdgeDockCells('), main.indexOf('function pushEdgeDockCells('));
   assert.match(statsPath, /pushEdgeDockCells\(edgeDockCellsFor\(visibleStats\)\);/);
   const syncPath = main.slice(main.indexOf('function syncDockSurfaces('));
   assert.match(syncPath, /const stats = edgeDockStats\(\);/);
@@ -84,5 +84,5 @@ test('the edge dock arms a re-projection for the moment its running reading expi
   const timerPath = main.slice(main.indexOf('function scheduleSessionExpiry('), main.indexOf('function ensureEdgeDockController('));
   assert.match(timerPath, /repaintDockSurfaces\(\);/);
   const repaintPath = main.slice(main.indexOf('function repaintDockSurfaces('), main.indexOf('function edgeDockDerivedSelections('));
-  assert.match(repaintPath, /updateDockCells\(electronPresentationStats\(stats\)\)/);
+  assert.match(repaintPath, /updateEdgeDockCells\(electronPresentationStats\(stats\)\)/);
 });

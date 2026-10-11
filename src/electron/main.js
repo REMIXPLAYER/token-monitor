@@ -4780,7 +4780,7 @@ function sendPush(payload, options = {}) {
       data: { ...payload.data, stats: rendererSnapshots.stamp(latestStats, rendererStats(visibleStats)) }
     };
     scheduleMacWidgetSnapshot(visibleStats, options.widgetProducerOwner);
-    updateDockCells(visibleStats);
+    updateEdgeDockCells(visibleStats);
     syncCodexPresentationActiveAccount();
     updateTrayDisplay();
     if (!options.skipExport && settings.exportAutoEnabled && settings.exportDir && Date.now() - lastExportAt >= exportIntervalMs()) {
@@ -5602,7 +5602,7 @@ function edgeDockStats() {
 
 function repaintDockSurfaces() {
   const stats = edgeDockStats();
-  if (stats) updateDockCells(electronPresentationStats(stats));
+  if (stats) updateEdgeDockCells(electronPresentationStats(stats));
 }
 
 function edgeDockDerivedSelections() {
@@ -5645,7 +5645,7 @@ function refreshEdgeDockDerivedPeriods(visibleStats) {
         if (snapshot?.status === 'ready' && snapshot.period) next[selection] = snapshot.period;
       }
       edgeDockDerivedPeriods = next;
-      updateDockCells(stats);
+      updateEdgeDockCells(stats);
     })
     .catch((error) => {
       console.log(`[edge-dock] history for derived periods failed: ${error.message}`);
@@ -5722,7 +5722,7 @@ function edgeDockCellsFor(visibleStats, items = settings?.edgeDockItems, options
   });
 }
 
-function updateDockCells(visibleStats) {
+function updateEdgeDockCells(visibleStats) {
   if ((!edgeDockController?.isRunning() && !notchController?.isRunning()) || !visibleStats) return;
   if (edgeDockController?.isRunning()) pushEdgeDockCells(edgeDockCellsFor(visibleStats));
   if (notchController?.isRunning()) pushNotchCells(visibleStats);
