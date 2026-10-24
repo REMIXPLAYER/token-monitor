@@ -14,6 +14,8 @@ contextBridge.exposeInMainWorld('tokenMonitorEdgeDock', {
   reportMotionFrame: (id, elapsed) => ipcRenderer.send('topNotch:frame', { id, elapsed }),
   onAnimate: (callback) => subscribe('topNotch:animate', callback),
   onMotion: (callback) => subscribe('topNotch:motion', callback),
+  reportWave: (payload) => ipcRenderer.invoke('topNotch:wave', payload),
+  onWaveState: (callback) => subscribe('topNotch:waveState', callback),
   dismiss: () => ipcRenderer.send('topNotch:dismiss'),
   pointer: () => ipcRenderer.send('topNotch:pointer'),
   press: () => ipcRenderer.send('topNotch:press'),

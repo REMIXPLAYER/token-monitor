@@ -7,6 +7,7 @@ const { toSvgPath } = require('../renderer/edgeDock/shapes');
 const { notchGlassGeometry } = require('../renderer/notch/renderer');
 const { readMacNotchScreens } = require('./screen');
 const { notchBlurBounds } = require('./blur');
+const { createWaveOverlay } = require('./waveOverlay');
 const { edgeDockBackdropMode, isLiquidGlassBackdrop, liquidGlassStyle, liquidGlassTint } = require('../macBackdropMode');
 const { edgeDockPollDelay, edgeDockScale, normalizeEdgeDockCustomScale, EDGE_DOCK_METRICS: M } = require('../edgeDock/geometry');
 
@@ -96,9 +97,10 @@ function createNotchController({ BrowserWindow, ipcMain, screen, getSettings,
   rendererDir, preloadPath, platform = process.platform, readScreens = readMacNotchScreens,
   nativeGlass = () => false, liquidGlass = () => null, createGlass, applyShapeMask,
   onSwitchCodexAccount, onToggleRateMode, onCapabilitiesChanged = () => {}, installNonActivatingInput = () => {}, blurAvailable = () => false, applyBlurMask, primaryButtonDown = () => null, naturalScrolling = () => true, prefersReducedMotion = () => false, isFullScreen = () => false, performHaptic = () => false, canRefreshLimits = () => false, onRefreshLimits,
-  logger = () => {} }) {
+  logger = () => {}, createWave = createWaveOverlay }) {
   const surfaces = ['notch'];
   const windows = {}, ready = {}, shapes = {}, glass = {}, nativeMaterial = {}, lastSent = {};
+  let waveOverlay = null, waveFailed = false, waveSuppressed = false;
   let materialKey = '', running = false, expanded = false, peeked = false, hoverTicked = false, locked = false;
   let capabilities = null;
   let appearance = {}, data = { cells: [], summary: null };
@@ -469,6 +471,7 @@ function createNotchController({ BrowserWindow, ipcMain, screen, getSettings,
     }
     const key = JSON.stringify([current, zoom()]);
     if (layoutKey !== key) {
+      hideWaveOverlay();
       layoutKey = key;
       const previous = viewport;
       const closedShape = notchCommands(current.closed.width, current.closed.height, current.geometry.notched, false, current.geometry.height, zoom());
@@ -510,6 +513,35 @@ function createNotchController({ BrowserWindow, ipcMain, screen, getSettings,
     visibility();
   }
 
+  function disposeWaveOverlay() {
+    const overlay = waveOverlay;
+    waveOverlay = null;
+    try { overlay?.dispose(); }
+    catch (error) { logger(`[top-notch] wave cleanup failed: ${error.message}`); }
+  }
+  function sendWaveState() {
+    if (alive(windows.notch) && ready.notch) windows.notch.webContents.send('topNotch:waveState', {
+      available: !waveFailed, visible: !waveSuppressed
+    });
+  }
+  function failWave(error) {
+    waveFailed = true;
+    disposeWaveOverlay();
+    logger(`[top-notch] native wave unavailable; using CSS: ${error.message}`);
+    sendWaveState();
+  }
+  function hideWaveOverlay() {
+    try { waveOverlay?.update({ visible: false }); }
+    catch (error) { failWave(error); }
+  }
+  function syncWaveVisibility() {
+    if (!alive(windows.notch)) return;
+    const hidden = shellHidden() || !windows.notch.isVisible();
+    if (waveSuppressed === hidden) return;
+    waveSuppressed = hidden;
+    if (hidden) hideWaveOverlay();
+    sendWaveState();
+  }
   function visibility() {
     const win = windows.notch;
     if (!alive(win)) return;
@@ -517,6 +549,7 @@ function createNotchController({ BrowserWindow, ipcMain, screen, getSettings,
     // Keep the transparent canvas alive for polling and frame acknowledgements.
     const opacity = shellHidden() ? 0 : 1;
     if (win.getOpacity() !== opacity) win.setOpacity(opacity);
+    syncWaveVisibility();
     syncCapture();
   }
 
@@ -573,6 +606,7 @@ function createNotchController({ BrowserWindow, ipcMain, screen, getSettings,
   }
 
   function animateShell(current) {
+    hideWaveOverlay();
     const fromProgress = progress, target = expanded ? 1 : 0;
     const spring = expanded ? NOTCH_SPRINGS.open : fromProgress > 0 ? NOTCH_SPRINGS.close : peeked ? NOTCH_SPRINGS.peek : NOTCH_SPRINGS.unpeek;
     const fromHeight = (frame?.bodyHeight || 0) + (frame?.headerHeight ?? current.geometry.height);
@@ -749,6 +783,7 @@ function createNotchController({ BrowserWindow, ipcMain, screen, getSettings,
   }
 
   function destroyWindows() {
+    disposeWaveOverlay(); waveFailed = waveSuppressed = false;
     destroyBlur();
     resetShellMotion(); refreshInFlight = null;
     summaryMeasured = false; summaryMeasurement = null; settleSummary = false;
@@ -789,7 +824,7 @@ function createNotchController({ BrowserWindow, ipcMain, screen, getSettings,
           if (windows[s] !== win) return;
           windows[s] = null; delete ignoredMouse[s]; ready[s] = false; shapes[s] = null; lastSent[s] = '';
           disposeGlass(s); nativeMaterial[s] = false;
-          if (s === 'notch') { motion = null; pointerInside = capturing = false; }
+          if (s === 'notch') { disposeWaveOverlay(); motion = null; pointerInside = capturing = false; }
         });
         nativeMaterial[s] = key === 'vibrancy';
         if (key === 'liquid') {
@@ -803,6 +838,14 @@ function createNotchController({ BrowserWindow, ipcMain, screen, getSettings,
         win.webContents.setWindowOpenHandler(() => ({ action: 'deny' }));
         win.webContents.on('will-navigate', (event) => event.preventDefault());
         win.webContents.on('did-fail-load', (_event, code, message) => logger(`[top-notch] renderer failed: ${code} ${message}`));
+        const resetWaveRenderer = () => {
+          if (windows[s] !== win) return;
+          ready[s] = false; lastSent[s] = '';
+          disposeWaveOverlay();
+        };
+        win.webContents.on('did-start-loading', resetWaveRenderer);
+        win.webContents.on('render-process-gone', resetWaveRenderer);
+        for (const event of ['show', 'hide']) win.on(event, () => { if (windows[s] === win) syncWaveVisibility(); });
         win.loadFile(path.join(rendererDir, 'edgeDock', 'index.html'), { query: { surface: s } })
           .catch(error => logger(`[top-notch] ${s} load failed: ${error.message}`));
       }
@@ -824,7 +867,7 @@ function createNotchController({ BrowserWindow, ipcMain, screen, getSettings,
     destroyWindows();
   }
   const handlers = {
-    'topNotch:ready': (event) => { const s = ownedSender(event.sender); if (!s) return; ready[s] = true; lastSent[s] = ''; refreshLayout(); send(s); visibility(); },
+    'topNotch:ready': (event) => { const s = ownedSender(event.sender); if (!s) return; ready[s] = true; lastSent[s] = ''; refreshLayout(); send(s); visibility(); sendWaveState(); },
     'topNotch:frame': (event, payload) => {
       if (ownedSender(event.sender) !== 'notch' || !motion || payload?.id !== motion.id
         || !Number.isFinite(payload?.elapsed) || payload.elapsed < motion.elapsed) return;
@@ -863,6 +906,24 @@ function createNotchController({ BrowserWindow, ipcMain, screen, getSettings,
     'topNotch:wheel': (event, payload) => { if (ownedSender(event.sender) === 'notch') wheeled(payload); }
   };
   for (const [channel, handler] of Object.entries(handlers)) ipcMain.on(channel, handler);
+  ipcMain.handle('topNotch:wave', (event, payload) => {
+    if (ownedSender(event.sender) !== 'notch' || platform !== 'darwin' || !running || waveFailed) return { ok: false };
+    if (payload?.disable === true) {
+      if (ready.notch) failWave(new Error('Renderer requested CSS fallback'));
+      return { ok: false };
+    }
+    if (payload?.visible !== true) { hideWaveOverlay(); return { ok: !waveFailed }; }
+    if (!ready.notch || waveSuppressed || shellHidden() || !expanded || motion || prefersReducedMotion()) return { ok: true, suppressed: true };
+    if (Array.isArray(payload.waves) && !payload.waves.length) { hideWaveOverlay(); return { ok: !waveFailed }; }
+    try {
+      waveOverlay ||= createWave(windows.notch);
+      waveOverlay.update(payload);
+      return { ok: true };
+    } catch (error) {
+      failWave(error);
+      return { ok: false };
+    }
+  });
   ipcMain.handle('topNotch:refreshLimits', (event) => {
     if (ownedSender(event.sender) !== 'notch' || !running || locked || !expanded || !ready.notch
       || settings().notchRefreshEnabled !== true || canRefreshLimits() !== true || !onRefreshLimits) return { ok: false, error: 'Not refreshable' };
@@ -914,7 +975,7 @@ function createNotchController({ BrowserWindow, ipcMain, screen, getSettings,
       }
       visibility();
     },
-    dispose() { stop(); for (const [channel, handler] of Object.entries(handlers)) ipcMain.removeListener(channel, handler); ipcMain.removeHandler('topNotch:switchCodexAccount'); ipcMain.removeHandler('topNotch:refreshLimits'); }
+    dispose() { stop(); for (const [channel, handler] of Object.entries(handlers)) ipcMain.removeListener(channel, handler); ipcMain.removeHandler('topNotch:wave'); ipcMain.removeHandler('topNotch:switchCodexAccount'); ipcMain.removeHandler('topNotch:refreshLimits'); }
   };
 }
 module.exports = { createNotchController, normalizeNotchStyle, normalizeNotchShape, normalizeNotchHoverAction, normalizeNotchHoverDelay,

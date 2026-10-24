@@ -32,7 +32,7 @@
     return [...head, { key: 'other', other: true, tokens: rest }];
   }
 
-  function createNotchPanel({ document, window, el, t, state, bridge, shared }) {
+  function createNotchPanel({ document, window, el, t, state, bridge, shared, onLayout = () => {} }) {
     const { markNode, hasMask, providerLabel, limitProviderColor, formatTokens, formatCardTokens, formatBreakdownTokens, usageCostNode: usageCost, formatRate,
       appearance, prefersReducedMotion, readableColor = color => color, limitAccountTitle, overflowText, limitWindowsView } = shared;
     const presentation = window.TokenMonitorEdgeDockPresentation;
@@ -214,6 +214,7 @@
 
     function selectPage(page) {
       if (!PAGES.includes(page) || view.page === page) return;
+      onLayout();
       const previous = PAGES.indexOf(view.page);
       settleRolls();
       stopTitleReading();
@@ -991,6 +992,7 @@
       // Hover readings belong to the DOM they were made on; a rebuild under
       // the pointer would otherwise drop the scrubbed day mid-gesture.
       if (page === 'home' && view.scrub && !force) return;
+      onLayout();
       if (pageKeys.has(page)) node.classList.remove('is-entering');
       pageKeys.set(page, key);
       const pageNode = pageNodes.get(page);

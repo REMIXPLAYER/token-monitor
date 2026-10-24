@@ -42,10 +42,10 @@ function ensureScratch(pixelWidth, edgeCount) {
 
 // Keeps the previous implementation's scanline math, sample order and
 // rounding, so the alpha mask stays byte-identical. The fast path only accepts
-// rows whose eight samples each describe one span. Rows outside the polygon's
-// y range, or with no crossings at all, are skipped: the buffer is zeroed, so
-// their output is already correct. Rows with several spans or non-finite
-// crossings take the reference path below.
+// samples with zero or one span. Rows outside the polygon's y range skip edge
+// scans; rows with eight empty samples skip the alpha write. Both are already
+// zero in the buffer. Multiple spans or non-finite crossings take the reference
+// path below.
 function rasterizeMask(polygons, width, height, scale = 1) {
   const pixelWidth = Math.max(1, Math.round(width * scale));
   const pixelHeight = Math.max(1, Math.round(height * scale));
@@ -81,8 +81,7 @@ function rasterizeMask(polygons, width, height, scale = 1) {
     if (row + 1 <= minY || row >= maxY) continue;
     coverage.fill(0);
     let oneSpan = true;
-    let sawZero = false;
-    let empty = true;
+    let allSamplesEmpty = true;
     for (let sample = 0; sample < SUBSAMPLES; sample += 1) {
       const y = row + (sample + 0.5) / SUBSAMPLES;
       let count = 0;
@@ -93,8 +92,10 @@ function rasterizeMask(polygons, width, height, scale = 1) {
           count += 1;
         }
       }
-      if (count === 0) { sawZero = true; continue; }
-      empty = false;
+      // An empty span also prevents the shared interior from being filled:
+      // those columns are opaque only when every sample covers them.
+      if (count === 0) { starts[sample] = ends[sample] = 0; continue; }
+      allSamplesEmpty = false;
       if (count !== 2) { oneSpan = false; break; }
       const start = Math.max(0, Math.min(crossings[0], crossings[1]));
       const end = Math.min(pixelWidth, Math.max(crossings[0], crossings[1]));
@@ -104,8 +105,7 @@ function rasterizeMask(polygons, width, height, scale = 1) {
       starts[sample] = start;
       ends[sample] = end;
     }
-    if (empty) continue;
-    if (sawZero) oneSpan = false;
+    if (allSamplesEmpty) continue;
 
     if (!oneSpan) {
       // Reference path: every span, in sample order.

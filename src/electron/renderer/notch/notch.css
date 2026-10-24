@@ -77,13 +77,19 @@ html.notch-black .edge-dock-root[data-surface="notch"] .edge-dock-shape {
 .notch-waiting-dot { width: 6px; height: 6px; border-radius: 50%; background: var(--yellow); box-shadow: 0 0 6px var(--yellow); }
 .notch-wave { display: inline-flex; align-items: center; gap: 2.5px; height: 16px; }
 .notch-summary .notch-wave { scale: 1 1.15; }
-.notch-wave i { width: 3px; border-radius: 2px; background: var(--notch-accent, var(--text)); animation: notch-wave 1.05s ease-in-out infinite; }
+.edge-dock-root[data-surface="notch"] { --notch-wave-cycle: 1.05s; --notch-wave-min-scale: .4; --notch-wave-easing: cubic-bezier(.42,0,.58,1); }
+.notch-wave i { width: 3px; border-radius: 2px; background: var(--notch-accent, var(--text)); animation: notch-wave var(--notch-wave-cycle, 1.05s) var(--notch-wave-easing, ease-in-out) infinite; }
 .notch-wave i:nth-child(1) { height: 7px; animation-delay: -.2s; }
 .notch-wave i:nth-child(2) { height: 13px; animation-delay: -.55s; }
 .notch-wave i:nth-child(3) { height: 9px; animation-delay: -.85s; }
 .notch-wave i:nth-child(4) { height: 15px; animation-delay: -.35s; }
 .notch-wave i:nth-child(5) { height: 6px; animation-delay: -.7s; }
-@keyframes notch-wave { 50% { transform: scaleY(.4); } }
+@keyframes notch-wave { 50% { transform: scaleY(var(--notch-wave-min-scale, .4)); } }
+/* Stop every CSS wave, including clipped and summary waves, only after native
+   acknowledgement. Removing this class restores the complete CSS fallback. */
+.has-native-wave .notch-wave i { animation: none !important; }
+.has-native-wave .notch-wave { opacity: 0 !important; }
+.is-wave-suppressed .notch-wave i { animation-play-state: paused; }
 
 /* ---- Open panel ------------------------------------------------------------ */
 /* The body spans the whole open outline: the band shares the camera row on an

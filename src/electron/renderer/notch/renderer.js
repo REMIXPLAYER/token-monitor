@@ -39,7 +39,10 @@
     const accountIdentityApi = window.TokenMonitorAccountIdentity;
     const { clientColors } = window.TokenMonitorUsageCharts;
     const panelApi = window.TokenMonitorNotchPanel;
-    const panel = panelApi.createNotchPanel({ document, window, el, t, state, bridge, shared: {
+    const waves = window.TokenMonitorNotchWaves?.createNotchWaves({ window, root, bridge, prefersReducedMotion,
+      isReady: () => state.payload?.expanded === true && !notchAnimation
+        && state.payload.motion?.progress === 1 && state.payload.motion?.done !== false });
+    const panel = panelApi.createNotchPanel({ document, window, el, t, state, bridge, onLayout: () => waves?.update(), shared: {
       markNode, hasMask, providerLabel, limitProviderColor, formatTokens, formatCardTokens, formatBreakdownTokens, formatCost, usageCostNode, formatRate,
       appearance, prefersReducedMotion, ensureRefreshButton, readableColor, limitAccountTitle, overflowText, limitWindowsView
     } });
@@ -544,6 +547,7 @@
     }
 
     function renderNotch(payload) {
+      waves?.update();
       const opening = payload.expanded === true && !notchExpanded;
       if (!payload.expanded) panel.suspend();
       notchExpanded = payload.expanded === true;
@@ -593,6 +597,7 @@
     }
     let notchAnimation = null;
     function startNotchAnimation(config) {
+      waves?.update();
       if (notchAnimation) cancelAnimationFrame(notchAnimation.handle);
       notchAnimation = null;
       if (!(config.duration > 0)) return;
@@ -614,7 +619,7 @@
         if (frame.done) { cancelAnimationFrame(notchAnimation.handle); notchAnimation = null; }
         else notchAnimation.handle = requestAnimationFrame(notchAnimation.tick);
       }
-      if (frame.done) reportNotchContentSize();
+      if (frame.done) { reportNotchContentSize(); waves?.update(); }
       if (notchRowsPending && (frame.progress === 0 || frame.progress === 1) && state.payload) {
         notchRowsPending = false;
         renderNotch(state.payload);
@@ -630,6 +635,7 @@
       render: renderNotch,
       applyMotion: applyNotchMotion,
       applyAppearance(payload) {
+        waves?.update();
         // Material ownership must update even when a tooltip holds the panel's
         // content render; otherwise a failed native scrim leaves the SVG hidden.
         root.classList.toggle('has-native-hardware-shade', payload.nativeHardwareShade === true);

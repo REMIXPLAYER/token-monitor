@@ -71,7 +71,7 @@ function fixture(t, settings = {}, options = {}) {
   // Most cases exercise opening on hover; the default grow-only mode has its own cases.
   const preferences = { notchEnabled: true, edgeDockEnabled: false, notchHoverAction: 'open', ...settings };
   const deps = { BrowserWindow: RecordingWindow, ipcMain, screen, rendererDir: '/renderer', preloadPath: '/preload', getSettings: () => preferences, nativeGlass: options.nativeGlass || (() => false), liquidGlass: options.liquidGlass, createGlass: options.createGlass, prefersReducedMotion: () => options.reducedMotion !== false, platform: options.platform || 'darwin' };
-  const controller = createNotchController({ ...deps, readScreens: options.readScreens || (() => ({ screens: [native], mainDisplayId: 1 })), onSwitchCodexAccount: (id) => ({ ok: true, id }), onToggleRateMode: options.onToggleRateMode, onCapabilitiesChanged: options.onCapabilitiesChanged, installNonActivatingInput: options.installNonActivatingInput, primaryButtonDown: options.primaryButtonDown || (() => false), naturalScrolling: options.naturalScrolling, isFullScreen: options.isFullScreen || (() => false), logger: options.logger, performHaptic: options.performHaptic, canRefreshLimits: options.canRefreshLimits, onRefreshLimits: options.onRefreshLimits, blurAvailable: options.blurAvailable, applyBlurMask: options.applyBlurMask });
+  const controller = createNotchController({ ...deps, readScreens: options.readScreens || (() => ({ screens: [native], mainDisplayId: 1 })), onSwitchCodexAccount: (id) => ({ ok: true, id }), onToggleRateMode: options.onToggleRateMode, onCapabilitiesChanged: options.onCapabilitiesChanged, installNonActivatingInput: options.installNonActivatingInput, primaryButtonDown: options.primaryButtonDown || (() => false), naturalScrolling: options.naturalScrolling, isFullScreen: options.isFullScreen || (() => false), logger: options.logger, createWave: options.createWave, performHaptic: options.performHaptic, canRefreshLimits: options.canRefreshLimits, onRefreshLimits: options.onRefreshLimits, blurAvailable: options.blurAvailable, applyBlurMask: options.applyBlurMask });
   t.after(() => controller.dispose());
   const setData = controller.setData;
   controller.setData = (value) => {
@@ -90,6 +90,91 @@ function fixture(t, settings = {}, options = {}) {
 }
 function last(win) { return win.messages.filter((message) => message.channel === 'topNotch:render').at(-1)?.payload; }
 function notchWindow(f) { return f.windows.findLast(win => win.query?.surface === 'notch' && !win.destroyed); }
+function openNativeWave(f) {
+  const win = notchWindow(f), head = last(win).geometry;
+  f.screen.point = { x: win.bounds.x + head.headerX + 20, y: 10 };
+  f.controller.poll(100); f.controller.poll(1000);
+  const config = win.messages.filter(m => m.channel === 'topNotch:animate').at(-1).payload;
+  f.ipcMain.emit('topNotch:frame', { sender: win.webContents }, { id: config.id, elapsed: config.duration });
+  assert.equal(last(win).expanded, true);
+  return payload => f.ipcMain.handlers.get('topNotch:wave')({ sender: win.webContents }, payload);
+}
+
+test('native waves are lazy, reject foreign senders, and stop on lock, reload and renderer crash', t => {
+  let created = 0, disposed = 0;
+  const updates = [];
+  const f = fixture(t, {}, { reducedMotion: false, createWave: () => {
+    created++; return { update: payload => updates.push(payload), dispose: () => disposed++ };
+  } });
+  const invoke = openNativeWave(f), win = notchWindow(f);
+  assert.equal(created, 0);
+  assert.equal(f.ipcMain.handlers.get('topNotch:wave')({ sender: {} }, { visible: true }).ok, false);
+  assert.equal(invoke({ visible: false }).ok, true);
+  assert.equal(created, 0, 'hiding must not initialize native APIs');
+  assert.equal(invoke({ visible: true, waves: [] }).ok, true);
+  assert.equal(created, 0, 'empty visible waves stop CSS without initializing native APIs');
+  assert.equal(invoke({ visible: true }).ok, true);
+  assert.equal(created, 1);
+  win.hide(); win.emit('hide');
+  assert.equal(updates.at(-1).visible, false, 'native window hiding stops its animations');
+  assert.equal(invoke({ visible: true }).suppressed, true);
+  win.showInactive(); win.emit('show');
+  assert.equal(invoke({ visible: true }).ok, true);
+  f.controller.setLocked(true);
+  assert.equal(updates.at(-1).visible, false);
+  assert.equal(win.messages.filter(m => m.channel === 'topNotch:waveState').at(-1).payload.visible, false);
+  assert.equal(invoke({ visible: true }).suppressed, true);
+  f.controller.setLocked(false);
+  win.webContents.emit('did-start-loading'); assert.equal(disposed, 1);
+  assert.equal(invoke({ visible: true }).suppressed, true, 'old renderer cannot recreate layers while reloading');
+  f.ipcMain.emit('topNotch:ready', { sender: win.webContents });
+  openNativeWave(f)({ visible: true }); assert.equal(created, 2);
+  win.webContents.emit('render-process-gone'); assert.equal(disposed, 2);
+  f.controller.dispose();
+  assert.equal(f.ipcMain.handlers.has('topNotch:wave'), false);
+});
+
+test('native wave initialization and update failures latch CSS fallback until window replacement', t => {
+  for (const mode of ['initialize', 'update', 'hide']) {
+    let created = 0, disposed = 0, broken = true;
+    const f = fixture(t, {}, { reducedMotion: false, createWave: () => {
+      created++;
+      if (broken && mode === 'initialize') throw new Error('not supported');
+      return { update(payload) {
+        if (broken && (mode === 'update' || mode === 'hide' && !payload.visible)) throw new Error('native call failed');
+      }, dispose: () => disposed++ };
+    } });
+    let invoke = openNativeWave(f);
+    invoke({ visible: true });
+    if (mode === 'hide') invoke({ visible: false });
+    assert.equal(invoke({ visible: true }).ok, false);
+    assert.equal(created, 1, `${mode}: no retry on the next payload`);
+    assert.equal(disposed, mode === 'initialize' ? 0 : 1);
+    assert.equal(notchWindow(f).messages.filter(m => m.channel === 'topNotch:waveState').at(-1).payload.available, false);
+    broken = false;
+    f.preferences.notchEnabled = false; f.controller.sync();
+    f.preferences.notchEnabled = true; f.controller.sync();
+    f.ipcMain.emit('topNotch:ready', { sender: notchWindow(f).webContents });
+    invoke = openNativeWave(f);
+    assert.equal(invoke({ visible: true }).ok, true);
+    assert.equal(created, 2);
+  }
+});
+
+test('native waves stay suppressed during motion and reduced motion, and renderer fallback disposes them', t => {
+  let created = 0, disposed = 0;
+  const options = { reducedMotion: false, createWave: () => {
+    created++; return { update() {}, dispose: () => disposed++ };
+  } };
+  const f = fixture(t, {}, options), invoke = openNativeWave(f);
+  options.reducedMotion = true;
+  assert.equal(invoke({ visible: true }).suppressed, true); assert.equal(created, 0);
+  options.reducedMotion = false;
+  assert.equal(invoke({ visible: true }).ok, true);
+  assert.equal(invoke({ visible: false, disable: true }).ok, false);
+  assert.equal(disposed, 1);
+  assert.equal(invoke({ visible: true }).ok, false); assert.equal(created, 1);
+});
 // Input the page reports once the window takes the pointer.
 function press(f) { f.ipcMain.emit('topNotch:press', { sender: notchWindow(f).webContents }); }
 function wheel(f, deltaY, deltaX = 0) { f.ipcMain.emit('topNotch:wheel', { sender: notchWindow(f).webContents }, { deltaX, deltaY }); }
@@ -2565,7 +2650,7 @@ test('Notch visibility transitions settle summary motion without rebuilding its 
   const code = source.slice(source.indexOf('function renderNotch('), source.indexOf('    let notchAnimation ='));
   let settles = 0;
   const payload = { expanded: false, summary: null, cells: [], appearance: {}, geometry: { gapWidth: 179, notched: true } };
-  const context = { state: { appearanceKey: 'same' }, notchExpanded: false, notchClock: 0,
+  const context = { waves: null, state: { appearanceKey: 'same' }, notchExpanded: false, notchClock: 0,
     notchHeaderKey: '', panel: { suspend() {} }, settleNotchNumbers: () => settles++, settleNotchStatNumbers() {},
     resetRefreshVisit() {}, paintRefreshButton() {}, root: { classList: { toggle() {} }, style: { setProperty() {} } },
     runningSessionSummary() {}, contentLayer: { querySelector: () => null, prepend() {} },
@@ -2595,7 +2680,7 @@ test('Notch refreshes an expired waiting indicator without rebuilding an unchang
   const payload = { expanded: false, summary: { needsClock: false,
     items: [{ type: 'icon', providerCell: { sessions } }, { type: 'text', text: '51.7M' }] },
   cells: [], appearance: {}, geometry: { gapWidth: 0, summaryRingSize: 42, notched: false } };
-  const context = { state: { appearanceKey: 'same' }, notchExpanded: false, notchClock: 0, notchHeaderKey: '',
+  const context = { waves: null, state: { appearanceKey: 'same' }, notchExpanded: false, notchClock: 0, notchHeaderKey: '',
     runningSessionSummary: rows => presentation.runningSessionSummary(rows, now),
     presentation: { waitingSessionSummary: rows => presentation.waitingSessionSummary(rows, now) },
     settleNotchNumbers() {}, panel: { suspend() {} }, settleNotchStatNumbers() {}, resetRefreshVisit() {}, paintRefreshButton() {},

@@ -111,3 +111,12 @@ test('mask matches the reference on degenerate and random polygons', () => {
     assertSame([polygon], 60, 40, shape % 2 === 0 ? 1 : 2);
   }
 });
+
+test('mask preserves partial boundary rows and clears empty bands in a reused bitmap', () => {
+  const rectangle = (top, bottom) => [[2, top], [38, top], [38, bottom], [2, bottom]];
+  for (const scale of [0.5, 1, 1.25, 2, 3]) {
+    // Seed the pool and span scratch with opaque rows before drawing the gaps.
+    assertSame([rectangle(0, 30)], 40, 30, scale);
+    assertSame([rectangle(4.25, 7.75), rectangle(19.25, 23.75)], 40, 30, scale);
+  }
+});
