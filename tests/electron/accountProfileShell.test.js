@@ -9,6 +9,22 @@ const vm = require('node:vm');
 const accountShellApi = require('../../src/electron/renderer/limits/accountShell');
 const app = fs.readFileSync(path.join(__dirname, '../../src/electron/renderer/app.js'), 'utf8');
 
+test('MiniMax billing links follow each profile region and billing type', () => {
+  const source = app.slice(app.indexOf('function minimaxBillingUrl('), app.indexOf('function updateOpenRouterProfilesStatus('));
+  const context = {
+    state: { settings: { minimaxApiRegion: 'cn', minimaxBillingMode: 'token-plan' } },
+    localProviderStatuses: () => [
+      { source: 'api', accountName: 'work', region: 'en' },
+      { source: 'api', accountName: 'personal', region: 'cn' }
+    ]
+  };
+  vm.runInNewContext(`${source}\nthis.url = minimaxBillingUrl;`, context);
+  assert.equal(context.url('work', { apiRegion: 'auto', billingMode: 'api' }), 'https://platform.minimax.io/user-center/payment/balance');
+  assert.equal(context.url('personal', { apiRegion: 'auto', billingMode: 'token-plan' }), 'https://platform.minimaxi.com/user-center/payment/token-plan');
+  assert.equal(context.url('work', { apiRegion: 'cn', billingMode: 'api' }), 'https://platform.minimaxi.com/user-center/payment/balance');
+  assert.equal(context.url('environment', {}), 'https://platform.minimaxi.com/user-center/payment/token-plan');
+});
+
 function deferred() {
   let resolve;
   let reject;

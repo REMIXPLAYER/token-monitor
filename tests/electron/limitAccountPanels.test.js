@@ -8,6 +8,9 @@ const vm = require('node:vm');
 
 const { createCredentialPanel } = require('../../src/electron/renderer/limits/accountPanels');
 const { limitAccountFormsForRenderer } = require('../../src/electron/limits/accountSettings');
+const legacyMinimaxForm = require('../helpers/legacyMinimaxForm');
+// The former MiniMax declaration remains a fixture for generic form behavior.
+const genericFormsForTest = () => [...limitAccountFormsForRenderer(), legacyMinimaxForm];
 const i18n = require('../../src/electron/renderer/i18n');
 
 class Element {
@@ -93,7 +96,7 @@ function appSource(from, to) {
 }
 
 function accountAppStatus({ providerName = 'minimax', billingMode = 'token-plan', providerStatus, providerSource = 'api', providerRows, keyConfigured = false, enabledProviders = new Set([providerName]) } = {}) {
-  const form = limitAccountFormsForRenderer().find(({ id }) => id === providerName);
+  const form = genericFormsForTest().find(({ id }) => id === providerName);
   const { group, document } = renderPanel(form);
   group.byId(`${providerName}SettingsDetails`).classList.remove('hidden');
   const state = {
@@ -153,7 +156,7 @@ const translated = (key, params) => i18n.translate('en', key, params);
 
 test('Ollama defaults to API key and switches instructions, setup URL and draft together', async () => {
   const { resolveOpenUrl, syncCredentialFields } = require('../../src/electron/renderer/limits/accountPanels');
-  const form = limitAccountFormsForRenderer().find(({ id }) => id === 'ollama');
+  const form = genericFormsForTest().find(({ id }) => id === 'ollama');
   const drafts = [];
   const writes = [];
   const { group, document } = renderPanel(form, {
@@ -199,7 +202,7 @@ test('Ollama defaults to API key and switches instructions, setup URL and draft 
 
 test('Ollama initializes from configured credential flags without receiving secrets', () => {
   const { syncCredentialFields } = require('../../src/electron/renderer/limits/accountPanels');
-  const form = limitAccountFormsForRenderer().find(({ id }) => id === 'ollama');
+  const form = genericFormsForTest().find(({ id }) => id === 'ollama');
   const { group, document } = renderPanel(form);
   const choice = group.byId('ollamaCredentialKindInput');
   syncCredentialFields(form, { document, settings: { ollamaCookieConfigured: true } });
@@ -217,7 +220,7 @@ test('Ollama selector saves replace the stored sibling before subsequent polling
   const { createCredentialCommands } = require('../../src/electron/limits/credentialCommands');
   const { fetchOllamaLimits } = require('../../src/shared/providers/ollama/limits');
   const { syncCredentialFields } = require('../../src/electron/renderer/limits/accountPanels');
-  const form = limitAccountFormsForRenderer().find(({ id }) => id === 'ollama');
+  const form = genericFormsForTest().find(({ id }) => id === 'ollama');
   let current = { ollamaApiKey: 'ollama-fixture-old', ollamaCookie: '' };
   const patches = [];
   const requests = [];
@@ -276,7 +279,7 @@ test('Ollama selector and API hint are translated in every locale', () => {
 });
 
 test('Ollama locks credential type until Save settles and restores it after success or failure', async () => {
-  const form = limitAccountFormsForRenderer().find(({ id }) => id === 'ollama');
+  const form = genericFormsForTest().find(({ id }) => id === 'ollama');
   const drafts = [];
   let finish;
   let fail;
@@ -310,13 +313,13 @@ test('Ollama locks credential type until Save settles and restores it after succ
 });
 
 test('Claude organization choice starts hidden before a cookie is checked', () => {
-  const form = limitAccountFormsForRenderer().find((entry) => entry.id === 'claude');
+  const form = genericFormsForTest().find((entry) => entry.id === 'claude');
   const { group } = renderPanel(form);
   assert.equal(group.byId('claudeWebOrganizationRow').classList.contains('hidden'), true);
 });
 
 test('StepFun setup copy points to its button, request header and save action', () => {
-  const form = limitAccountFormsForRenderer().find((entry) => entry.id === 'stepfun');
+  const form = genericFormsForTest().find((entry) => entry.id === 'stepfun');
   const { group } = renderPanel(form);
   const steps = form.manual[0].steps;
   assert.equal(steps.length, 4);
@@ -328,7 +331,7 @@ test('StepFun setup copy points to its button, request header and save action', 
   assert.match(i18n.translate('zh-TW', steps[3]), /儲存 token/);
 });
 
-for (const form of limitAccountFormsForRenderer()) {
+for (const form of genericFormsForTest()) {
   test(`${form.id} renders a localized account panel and hands the draft to the caller`, async () => {
     const calls = [];
     let save = async (_, values) => {
@@ -386,7 +389,7 @@ for (const form of limitAccountFormsForRenderer()) {
   });
 }
 
-for (const form of limitAccountFormsForRenderer()) {
+for (const form of genericFormsForTest()) {
   test(`${form.id} ignores a second submit while the first save is pending`, async () => {
     let finish;
     let saves = 0;
@@ -408,7 +411,7 @@ for (const form of limitAccountFormsForRenderer()) {
 }
 
 test('selects drive their dependent hints, notes and landing page before they are saved', async () => {
-  const forms = Object.fromEntries(limitAccountFormsForRenderer().map((form) => [form.id, form]));
+  const forms = Object.fromEntries(genericFormsForTest().map((form) => [form.id, form]));
   const { resolveOpenUrl, syncCredentialFields } = require('../../src/electron/renderer/limits/accountPanels');
 
   const changes = [];
@@ -454,7 +457,7 @@ test('selects drive their dependent hints, notes and landing page before they ar
 });
 
 test('a plain-text setting is shown again after a save, a secret never is', () => {
-  const forms = Object.fromEntries(limitAccountFormsForRenderer().map((form) => [form.id, form]));
+  const forms = Object.fromEntries(genericFormsForTest().map((form) => [form.id, form]));
   const { syncCredentialFields } = require('../../src/electron/renderer/limits/accountPanels');
   const devin = renderPanel(forms.devin);
   syncCredentialFields(forms.devin, { document: devin.document, settings: { devinOrganization: 'org_1', devinBearerToken: 'set' } });
@@ -732,7 +735,7 @@ test('MiniMax hints cover both key types and keep cash Spend scope outside the d
     assert.notEqual(i18n.translate(locale, 'settings.minimax.spendNote'), 'settings.minimax.spendNote', locale);
   }
   const { syncCredentialFields } = require('../../src/electron/renderer/limits/accountPanels');
-  const form = limitAccountFormsForRenderer().find(form => form.id === 'minimax');
+  const form = genericFormsForTest().find(form => form.id === 'minimax');
   const { group, document } = renderPanel(form);
   const note = [...group.walk()].find(node => node.dataset.i18n === 'settings.minimax.spendNote');
   assert.ok(note);
@@ -749,7 +752,7 @@ test('MiniMax hints cover both key types and keep cash Spend scope outside the d
 
 test('MiniMax explicit regions drive Open before a probe and override stale status', async () => {
   const { resolveOpenUrl, syncCredentialFields } = require('../../src/electron/renderer/limits/accountPanels');
-  const form = limitAccountFormsForRenderer().find(({ id }) => id === 'minimax');
+  const form = genericFormsForTest().find(({ id }) => id === 'minimax');
   const opened = [];
   let provider = null;
   const panel = renderPanel(form, { onOpen: () => opened.push(resolveOpenUrl(form, { document: panel.document, provider })) });
@@ -772,7 +775,7 @@ test('MiniMax explicit regions drive Open before a probe and override stale stat
 
 test('MiniMax billing choice waits for saving before key submission and follows the balance setup link', async () => {
   const { resolveOpenUrl, syncCredentialFields } = require('../../src/electron/renderer/limits/accountPanels');
-  const form = limitAccountFormsForRenderer().find(({ id }) => id === 'minimax');
+  const form = genericFormsForTest().find(({ id }) => id === 'minimax');
   const drafts = [];
   let finish;
   const panel = renderPanel(form, {
@@ -899,7 +902,7 @@ test('MiniMax API-key rechecks leave the independent Code row in place', () => {
 });
 
 test('MiniMax key submission waits for a region save without submitting an implicit region', async () => {
-  const form = limitAccountFormsForRenderer().find(({ id }) => id === 'minimax');
+  const form = genericFormsForTest().find(({ id }) => id === 'minimax');
   const drafts = [];
   let finish;
   const { group } = renderPanel(form, {
@@ -921,7 +924,7 @@ test('MiniMax key submission waits for a region save without submitting an impli
 });
 
 test('MiniMax serializes rapid region writes and waits for changes queued during submission', async () => {
-  const form = limitAccountFormsForRenderer().find(({ id }) => id === 'minimax');
+  const form = genericFormsForTest().find(({ id }) => id === 'minimax');
   const writes = [];
   const drafts = [];
   let stored = 'auto';
@@ -951,7 +954,7 @@ test('MiniMax serializes rapid region writes and waits for changes queued during
 });
 
 test('MiniMax reports failed region writes and permits later key submission after UI resync', async () => {
-  const form = limitAccountFormsForRenderer().find(({ id }) => id === 'minimax');
+  const form = genericFormsForTest().find(({ id }) => id === 'minimax');
   const { syncCredentialFields } = require('../../src/electron/renderer/limits/accountPanels');
   const drafts = [];
   const errors = [];
@@ -978,7 +981,7 @@ test('MiniMax reports failed region writes and permits later key submission afte
 });
 
 test('MiniMax queued region changes recover after an earlier write rejects', async () => {
-  const form = limitAccountFormsForRenderer().find(({ id }) => id === 'minimax');
+  const form = genericFormsForTest().find(({ id }) => id === 'minimax');
   const writes = [];
   const saved = [];
   let fail;
@@ -1009,7 +1012,7 @@ test('account setting errors are reported through the persistent panel message',
   const app = fs.readFileSync(path.join(__dirname, '..', '..', 'src', 'electron', 'renderer', 'app.js'), 'utf8');
   const start = app.indexOf('function setupLimitAccountPanels()');
   const end = app.indexOf('\nfunction limitProviderAccountGroup(', start);
-  const form = limitAccountFormsForRenderer().find(({ id }) => id === 'minimax');
+  const form = genericFormsForTest().find(({ id }) => id === 'minimax');
   const messages = [];
   const renders = [];
   let callbacks;

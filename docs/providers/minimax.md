@@ -21,6 +21,14 @@ The producer of a request, the credential used to observe it, and the resource p
 
 Code points use `CREDITS`, never CNY/USD. Membership's `op_credit_summary.total_remaining_amount` already combines purchased and gifted points: component balances must not be added again or emitted as independent balances. Purchased points are shared between Code and Open Platform; gifted check-in points are Code-only. Plan quotas and the pay-as-you-go cash wallet remain separate pools. Eligible Code points can cover usage after a plan limit when the user's fallback setting allows it; grants are consumed by expiry order, not an assumed paid-first or gifted-first rule.
 
+## API key profiles
+
+Settings follows the shared named-API-profile list: each key has its own name, enabled flag, billing type and API region. Names can change without changing the key's hashed identity or saved cost binding. Identical keys are collected once, including when supplied by the environment. A disabled stored key blocks the same credential from reappearing through a legacy or environment fallback. Different keys can observe the same account or wallet; display them independently and never sum their balances or allowances.
+
+Existing `minimaxApiKey`, billing and region settings remain readable without a startup write. The existing key appears as `default` (or the next available name). The first successful profile mutation moves it into the shared profile credential map and clears only the legacy stored secret; its billing/region values are preserved, including an unset region that follows environment configuration. Generic legacy credential IPC and headless options remain accepted. Named profiles coexist with the environment key under the existing profile UI convention; raw keys never cross back to the renderer.
+
+Code discovery still runs once, independently of all API profiles. Each API request and Auto-region memory belongs to its own credential; scoped refresh, disable and removal target that identity. Existing single-key peer grouping applies only when one API key is active. Multiple keys remain ordinary separate account readings rather than extending a single peer hash into a multi-account ownership claim.
+
 ## Wallet and Spend
 
 API wallet balance comes from `/account/query_balance.available_amount`, including usable vouchers, rather than `cash_balance` alone. It is one `credits` window in CNY for China or USD for International. Zero and negative balances are valid; a missing or nonnumeric amount is unavailable. Balance and cash Spend measure different things and must not be subtracted to reconstruct transactions.
@@ -36,7 +44,7 @@ Periods use the console's calendar-date filters. Bills refresh daily and can lag
 
 These are replacement snapshots, not increments. There is no MiniMax local Spend ledger, balance-delta fallback or tracking baseline. Optional Spend reads use the same selected key, resolved region and injected transport as the valid balance. A failed, denied or malformed optional result leaves that figure unknown without invalidating the balance, changing region or selecting another credential. Save-time probes skip Spend enrichment.
 
-Code OAuth does not query the API wallet or cash-billing endpoints and never borrows the retained API key. Its status and points are independent of API credential failures. A Code action's payment pool does not establish which API credential can observe it: same-group evidence alone does not prove complete cross-key or team coverage. Do not automatically merge these lane identities or assign API Spend to Code.
+Code OAuth does not query the API wallet or cash-billing endpoints and never borrows an API profile key. Its status and points are independent of API credential failures. A Code action's payment pool does not establish which API credential can observe it: same-group evidence alone does not prove complete cross-key or team coverage. Do not automatically merge these lane identities or assign API Spend to Code.
 
 OAuth and a Token Plan key can observe the same subscription's quota. Those readings are separate observations, not additional allowances; do not add them together or infer common ownership merely because their limits match.
 
@@ -70,7 +78,7 @@ Once a delegated command starts, quota cancellation does not interrupt its offic
 
 ## Account identity and aggregation
 
-Code identity hashes the server's regional group. Manual API-key identity retains its existing key hash. Matching readings select one observation through shared aggregation; amounts are never added across devices. Different keys or groups reported by other devices keep their own last-good readings. There is no automatic alias or stored-key migration. One current Code login and one API key can coexist locally; multiple managed Code logins are unsupported. Product labels do not replace subscription names in the plan cell.
+Code identity hashes the server's regional group. API-key identity retains its existing key hash. Matching readings select one observation through shared aggregation; amounts are never added across devices. Different keys or groups reported by other devices keep their own last-good readings. Group confirmation never changes either identity or its saved cost binding. One current Code login can coexist with named API key profiles; multiple managed Code logins are unsupported. Product labels do not replace subscription names in the plan cell.
 
 A GroupId confirmation that the API key belongs to the Code login is one account. The limits card shows one provider heading and that account's product lanes. The first lane's Updated line sits in the heading. Both lanes are account rows, so the shared account separator sits between them. Each later lane keeps its own Updated line, plan cell and readings. A lane with no subscription name leaves that cell empty. A saved cost record for that lane uses the shared subscriptions title as its entry. Without that confirmation the rows stay a several-account group. Amounts are not added. The peer hash is display-only and is stripped from public stats.
 
@@ -82,11 +90,11 @@ Provider subscription metadata is separate from saved cost records in `settings.
 
 ## Regions, settings and shared display
 
-Explicit `minimaxApiRegion` wins over legacy `minimaxApiHost`, then `TOKEN_MONITOR_MINIMAX_API_REGION`, `MINIMAX_API_REGION` and `MINIMAX_API_HOST`. Aliases are exact. An unchosen setting stays empty and resolves the environment at use time; an explicit Auto is stored as `auto`. The wire keeps `cn`/`en`, distinct from settings' `intl`/`auto`.
+A profile's `apiRegion` selects its region. For the legacy/environment lane, explicit `minimaxApiRegion` wins over legacy `minimaxApiHost`, then `TOKEN_MONITOR_MINIMAX_API_REGION`, `MINIMAX_API_REGION` and `MINIMAX_API_HOST`. Aliases are exact. An unchosen setting stays empty and resolves the environment at use time; an explicit Auto is stored as `auto`. The wire keeps `cn`/`en`, distinct from settings' `intl`/`auto`.
 
 For API-key sources, Auto first tries the runtime's last region that returned quota windows, or International when none is remembered. A pinned region never crosses regions. HTTP 401/403, business `1004` (including its HTTP 400 form), and transport failures may drive the existing fallback; ordinary 400 errors, 5xx, 429 and JSON errors do not. After a transport failure followed by an auth rejection, report unavailable rather than invalidating a potentially valid key. Remember a region only after a usable reading.
 
-Credentials stay in main and calls use the injected transport. Key billing type and region save independently; credential submission waits for those writes and does not overwrite them from a stale draft. Key, billing-type and API-region edits clear only API readings; they do not select or retire the discovered Code login. Replacing or clearing the local key retires its old API identity without retiring Code. Save-time key validation never reads or renews Code. Browser links follow the selected billing type and pinned or last-successful region through the declared URL policy.
+Credentials stay in main and calls use the injected transport. A profile save validates and commits its key, billing type and region together. An edit with a blank key retains that profile's existing credential; duplicate keys are rejected. The legacy credential IPC still accepts its independently saved billing/region settings without overwriting them from a stale draft. Profile edits clear only the affected API identity; they do not select or retire the discovered Code login. Replacing, disabling or deleting a key retires its old local API reading without retiring Code. Save-time key validation never reads or renews Code. Each profile's browser link follows its billing type and pinned or last-successful region through the declared URL policy.
 
 Reuse shared account rows, sign-in states, privacy handling, balance formatting, Spend tooltip and hide/show behavior. Settings keep the automatic connection explanation separate from the key form, like other automatic-plus-manual providers. Either healthy lane keeps the provider summary live, while the key form status reads only the local API lane. Both Code points and the API wallet use `metric: 'credits'` with their own units. The `billing` window kind does not make points currency.
 
@@ -94,4 +102,4 @@ Code points use the shared display-only balance meter without querying grant his
 
 ## Verification
 
-Run `node --test tests/shared/minimaxLimits.test.js tests/electron/limitAccountPanels.test.js tests/electron/limitProviderWiring.test.js tests/electron/credentialCommands.test.js` for focused coverage and `npm run verify` for the full suite. Live quota or balance verification requires a key of the selected billing type in the selected region; Code checks require the official local login. Mock responses do not establish current endpoint or billing semantics.
+Run `node --test tests/shared/minimaxLimits.test.js tests/electron/minimaxProfiles.test.js tests/electron/limitAccountPanels.test.js tests/electron/limitProviderWiring.test.js tests/electron/credentialCommands.test.js` for focused coverage and `npm run verify` for the full suite. Live quota or balance verification requires a key of the selected billing type in the selected region; Code checks require the official local login. Mock responses do not establish current endpoint or billing semantics.

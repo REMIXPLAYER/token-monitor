@@ -1155,6 +1155,61 @@
                 <div id="workbuddyAccountErrorMessage" class="settings-note error hidden" role="alert"></div>
               </div>
             </div>
+            <div id="minimaxAccountGroup" class="settings-group cursor-account-group">
+              <button id="minimaxSettingsToggle" class="settings-group-header cursor-settings-toggle" type="button" aria-expanded="false" aria-controls="minimaxSettingsDetails">
+                <span data-i18n="settings.minimax.title">MiniMax Accounts</span>
+                <span class="cursor-settings-summary">
+                  <span id="minimaxStatus" class="cursor-status-pill">Not configured</span>
+                  <span class="cursor-disclosure-icon" aria-hidden="true"></span>
+                </span>
+              </button>
+              <div id="minimaxSettingsDetails" class="cursor-settings-details hidden">
+                <div class="settings-actions">
+                  <button id="minimaxOpenBrowser" data-i18n="settings.minimax.openBrowser">Open MiniMax billing page</button>
+                  <button id="minimaxRefreshButton" data-i18n="settings.common.refresh">Refresh</button>
+                </div>
+                <div id="minimaxProfileList" class="opencode-profile-list"></div>
+                <p class="settings-note" data-i18n="settings.minimax.spendNote">Spend is the pre-voucher cash total and may lag behind the balance.</p>
+                <div id="minimaxAddForm" class="opencode-add-form">
+                  <button id="minimaxAddToggle" class="opencode-add-summary" type="button" aria-expanded="false" aria-controls="minimaxAddDetails">
+                    <svg class="add-icon" width="14" height="14" viewBox="0 0 14 14" fill="none">
+                      <path d="M7 1v12M1 7h12" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>
+                    </svg>
+                    <span data-i18n="settings.minimax.addProfile">Add account</span>
+                  </button>
+                  <div id="minimaxAddDetails" class="opencode-add-details accordion-animated-container hidden">
+                    <div class="accordion-animation-inner opencode-add-body">
+                      <p class="settings-note" data-i18n="settings.minimax.note">Add a MiniMax key with its billing type and API region. Keys stay on this device; Code uses its own local login.</p>
+                      <div class="settings-row">
+                        <label for="minimaxProfileName" data-i18n="settings.minimax.profileName">Account name</label>
+                        <input id="minimaxProfileName" type="text" data-i18n-placeholder="settings.minimax.profileNamePlaceholder" placeholder="e.g. work, personal">
+                      </div>
+                      <div class="settings-row">
+                        <label for="minimaxBillingModeInput" data-i18n="settings.minimax.billingMode">Billing type</label>
+                        <select id="minimaxBillingModeInput">
+                          <option value="token-plan" data-i18n="settings.minimax.billingTokenPlan">Token Plan</option>
+                          <option value="api" data-i18n="settings.minimax.billingApi">API billing</option>
+                        </select>
+                      </div>
+                      <div class="settings-row">
+                        <label for="minimaxApiRegionInput" data-i18n="settings.minimax.apiRegion">API region</label>
+                        <select id="minimaxApiRegionInput">
+                          <option value="auto" data-i18n="settings.minimax.regionAuto">Auto</option>
+                          <option value="cn" data-i18n="settings.minimax.regionCn">China</option>
+                          <option value="intl" data-i18n="settings.minimax.regionIntl">International</option>
+                        </select>
+                      </div>
+                      <input id="minimaxApiKeyInput" type="password" spellcheck="false" placeholder="API key" data-i18n-placeholder="settings.minimax.apiKeyPlaceholder" />
+                      <p class="settings-note" data-i18n="settings.minimax.keepKey">When editing, leave the key blank to keep the saved key.</p>
+                      <div class="settings-actions">
+                        <button id="minimaxProfileSubmit" data-i18n="settings.minimax.saveProfile">Save</button>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                <div id="minimaxErrorMessage" class="settings-note error hidden" role="alert"></div>
+              </div>
+            </div>
             <div id="openrouterAccountGroup" class="settings-group cursor-account-group">
               <button id="openrouterSettingsToggle" class="settings-group-header cursor-settings-toggle" type="button" aria-expanded="false" aria-controls="openrouterSettingsDetails">
                 <span data-i18n="settings.openrouter.title">OpenRouter Accounts</span>

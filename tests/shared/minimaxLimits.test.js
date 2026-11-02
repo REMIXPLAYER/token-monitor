@@ -1345,3 +1345,97 @@ test('MiniMax Code keeps a known account until a different group id is confirmed
   assert.equal(rows[0].windows[0].remaining, 20);
   assert.equal('removed' in rows[0], false);
 });
+
+test('MiniMax profiles isolate billing, region and refresh while preserving legacy and disabled-key precedence', async () => {
+  const { configuredMinimaxAccounts } = require('../../src/shared/providers/minimax/limits');
+  const options = { minimaxApiKey: 'old', minimaxBillingMode: 'token-plan', minimaxApiRegion: 'cn',
+    minimaxApiProfiles: {
+      wallet: { apiKey: 'wallet', billingMode: 'api', apiRegion: 'intl' },
+      disabled: { apiKey: 'env', enabled: false, billingMode: 'api', apiRegion: 'cn' }
+    } };
+  assert.deepEqual(configuredMinimaxAccounts(options, { env: { MINIMAX_CODING_API_KEY: 'env' } }).map(a => a.name), ['wallet', 'default']);
+  assert.deepEqual(configuredMinimaxAccounts({ ...options, minimaxApiKey: 'env' },
+    { env: { MINIMAX_CODING_API_KEY: 'env' } }).map(a => a.name), ['wallet']);
+  assert.deepEqual(configuredMinimaxAccounts({ minimaxApiProfiles: options.minimaxApiProfiles },
+    { env: { MINIMAX_CODING_API_KEY: 'env' } }).map(a => a.name), ['wallet']);
+  const requests = [];
+  const deps = { fetch: async (url, init) => {
+    requests.push([url, init.headers.Authorization]);
+    return okResponse(url.includes('query_balance') ? { available_amount: 7 } : windowsBody);
+  } };
+  const rows = await fetchMinimaxLimits(options, deps);
+  const wallet = rows.find(row => row.accountName === 'wallet');
+  assert.equal(wallet.region, 'en');
+  assert.equal(wallet.windows[0].currency, 'USD');
+  assert.equal(rows.find(row => row.accountName === 'default').region, 'cn');
+  assert.equal(rows.filter(row => row.source === 'api').length, 2);
+  requests.length = 0;
+  const scoped = await fetchMinimaxLimits({ ...options, previousLimits: { providers: rows },
+    limitRefreshScope: { provider: 'minimax', accountKey: wallet.accountKey } }, deps);
+  assert.equal(scoped.accountKey, wallet.accountKey);
+  assert.ok(requests.every(([, auth]) => auth === 'Bearer wallet'));
+  const removed = await fetchMinimaxLimits({ ...options, minimaxApiProfiles: {}, minimaxApiKey: 'old',
+    previousLimits: { providers: rows }, limitRefreshScope: { provider: 'minimax', accountKey: wallet.accountKey } }, deps);
+  assert.deepEqual(removed, [{ provider: 'minimax', accountKey: wallet.accountKey, removed: true }]);
+});
+
+test('MiniMax Auto region memory belongs to each profile credential', async () => {
+  const options = { minimaxApiProfiles: {
+    china: { apiKey: 'china', billingMode: 'api', apiRegion: 'auto' },
+    global: { apiKey: 'global', billingMode: 'token-plan', apiRegion: 'auto' }
+  } };
+  const requests = [];
+  const deps = { providerRuntimeState: new Map(), fetch: async (url, init) => {
+    const target = new URL(url);
+    const key = init.headers.Authorization;
+    if (target.pathname === '/account/amount') return okResponse({});
+    requests.push([key, target.hostname]);
+    if (key === 'Bearer china') return target.hostname === 'api.minimaxi.com'
+      ? okResponse({ available_amount: 5 }) : unauthorized();
+    return okResponse(windowsBody);
+  } };
+  await fetchMinimaxLimits(options, deps);
+  requests.length = 0;
+  await fetchMinimaxLimits(options, deps);
+  assert.deepEqual(requests, [['Bearer china', 'api.minimaxi.com'], ['Bearer global', 'api.minimax.io']]);
+});
+
+test('MiniMax profiles collect Code once and never let a rejected key invalidate a sibling or imply shared ownership', async () => {
+  const fixture = writeCodeAuthFixture();
+  const deps = codeDeps(fixture, async (url, init) => {
+    if (url === MINIMAX_CODE_MEMBERSHIP_URL_CN) return okResponse(membershipBody({ has_token_plan: false }));
+    if (url.endsWith('/account/query_balance')) return init.headers.Authorization === 'Bearer bad' ? unauthorized() : okResponse({ available_amount: 8 });
+    if (new URL(url).searchParams.has('GroupId')) return okResponse({ base_resp: { status_code: 2062 } });
+    return okResponse({});
+  });
+  const rows = await fetchMinimaxLimits({ minimaxApiProfiles: {
+    bad: { apiKey: 'bad', billingMode: 'api', apiRegion: 'cn' },
+    good: { apiKey: 'good', billingMode: 'api', apiRegion: 'cn' }
+  } }, deps);
+  assert.equal(rows.find(row => row.accountName === 'bad').status, 'unauthorized');
+  assert.equal(rows.find(row => row.accountName === 'good').windows[0].remaining, 8);
+  assert.equal(rows.find(row => row.source === 'oauth').windows[0].remaining, 4624);
+  assert.equal(deps.requests.filter(url => url === MINIMAX_CODE_MEMBERSHIP_URL_CN).length, 1);
+  assert.ok(rows.every(row => !row.relatedAccountKey));
+  const single = await fetchMinimaxLimits({ minimaxBillingMode: 'token-plan', minimaxApiRegion: 'intl',
+    minimaxApiProfiles: { good: { apiKey: 'good', billingMode: 'api', apiRegion: 'cn' } }
+  }, deps);
+  const api = single.find(row => row.source === 'api');
+  const code = single.find(row => row.source === 'oauth');
+  assert.equal(api.relatedAccountKey, code.accountKey, 'single-key affiliation uses the profile billing/region, not legacy defaults');
+  assert.equal(code.relatedAccountKey, api.accountKey);
+});
+
+test('MiniMax migrating an implicit legacy region preserves its environment pin', async () => {
+  const { minimaxApiProfiles } = require('../../src/shared/providers/minimax/limits');
+  const profiles = minimaxApiProfiles({ minimaxApiKey: 'legacy', minimaxApiRegion: '', minimaxBillingMode: 'api' });
+  const requests = [];
+  await fetchMinimaxLimits({ minimaxApiProfiles: profiles }, {
+    env: { MINIMAX_API_REGION: 'cn' }, fetch: async url => {
+      requests.push(url);
+      return okResponse({ available_amount: 8 });
+    }
+  });
+  assert.equal(profiles.default.apiRegion, '');
+  assert.equal(new URL(requests[0]).hostname, 'api.minimaxi.com');
+});

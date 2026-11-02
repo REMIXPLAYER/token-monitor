@@ -113,7 +113,18 @@ function redactThirdPartyProfilesForRenderer(profiles) {
   return out;
 }
 
+function redactMinimaxProfilesForRenderer(profiles) {
+  const out = Object.create(null);
+  const limits = limitProviderEntry('minimax').limits;
+  for (const [name, profile] of Object.entries(profiles || {})) {
+    out[name] = { enabled: profile?.enabled !== false, apiKey: profile?.apiKey ? 'set' : '',
+      billingMode: limits.normalizeMinimaxBillingMode(profile?.billingMode), apiRegion: limits.normalizeMinimaxRegionSetting(profile?.apiRegion) };
+  }
+  return out;
+}
+
 const PROFILE_REDACTORS = Object.freeze({
+  minimax: redactMinimaxProfilesForRenderer,
   opencode: redactOpencodeProfilesForRenderer,
   openrouter: redactOpenRouterProfilesForRenderer,
   thirdparty: redactThirdPartyProfilesForRenderer
@@ -366,6 +377,7 @@ module.exports = {
   normalizeAccountPatch,
   redactOpencodeProfilesForRenderer,
   redactOpenRouterProfilesForRenderer,
+  redactMinimaxProfilesForRenderer,
   redactThirdPartyProfilesForRenderer,
   rendererOmittedAccountKeys
 };

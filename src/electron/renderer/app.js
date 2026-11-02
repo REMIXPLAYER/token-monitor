@@ -101,6 +101,7 @@ const LIMIT_PROVIDER_ACCOUNT_NODES = {
   copilot: { group: 'copilotAccountGroup', status: 'copilotApiTokenStatus' },
   mimo: { group: 'mimoAccountGroup', status: 'mimoAccountStatus' },
   workbuddy: { group: 'workbuddyAccountGroup', status: 'workbuddyAccountStatus' },
+  minimax: { group: 'minimaxAccountGroup', status: 'minimaxStatus' },
   openrouter: { group: 'openrouterAccountGroup', status: 'openrouterStatus' },
   volcengine: { group: 'volcengineAccountGroup', status: 'volcengineAccountStatus' },
   thirdparty: { group: 'thirdpartyAccountGroup', status: 'thirdpartyStatus' }
@@ -325,7 +326,7 @@ function normalizeInitialViewValue(value, allowed, fallback) {
   return allowed.has(raw) || (allowed === viewBreakdownValues && pluginPlacementsApi.isHomeToken(raw)) ? raw : fallback;
 }
 
-const state = { period: normalizeInitialViewValue(initialViewState.period, viewPeriodValues, 'today'), appUpdate: null, breakdown: normalizeInitialViewValue(initialViewState.breakdown, viewBreakdownValues, 'home'), viewSwitcherOpen: false, viewSwitcherHasOpened: false, limitDetailTooltipHasOpened: false, limitDetailTooltipActive: false, limitDetailTooltipRenderPending: false, settings: null, windowVisible: new URLSearchParams(window.location.search).get('windowHidden') !== '1', stats: null, homeHistory: null, homeHistoryBusy: false, homeHistoryRequested: false, homeHistorySignature: '', homeHistoryRetries: 0, homeHistoryRetryTimer: null, homeActivityScrollLeft: null, homeActivityFollowEnd: true, homeActivityResizeObserver: null, serviceStatus: null, serviceStatusBusy: false, serviceProvidersExpanded: false, trendSettingsExpanded: false, trendsActivating: false, homeSettingsExpanded: false, homeLimitSettingsExpanded: false, limitProviderSettingsExpanded: '', clientHealthExpanded: '', clientSources: clientSourceCacheApi.createClientSourceCache(), clientSourcesKey: '', clientSourcesRequest: 0, subscriptionEditingId: '', subscriptionTopUps: [], subscriptionFormBase: null, subscriptionEditorTransitionId: 0, serviceStatusTicker: null, refreshTimer: null, refreshBusy: false, refreshFeedbackTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, streamFailure: null, mode: 'idle', appInfo: null, systemDarkUi: false, tokscaleStatus: null, hubInfo: null, hubBuildStatus: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, codexAccountExpanded: false, codexAccountError: '', codexSignInBusy: false, codexSignInFlowId: '', codexLoginUrl: '', codexLoginStatus: '', codexLoginOutput: '', codexWorkspaceChoices: [], codexWorkspaceId: '', codexActiveAccount: null, codexPendingActiveAccount: null, codexPendingActiveAccountUntil: 0, codexPendingActiveAccountTimer: null, customPricingExpanded: false, claudeAccountExpanded: false, claudePendingCheckSince: 0, opencodeProfileCount: 0, opencodeCookieExpanded: false, openrouterProfileCount: 0, openrouterAccountExpanded: false, thirdPartyProfileCount: 0, thirdPartyAccountExpanded: false, deepseekAccountExpanded: false, deepseekPendingCheckSince: 0, minimaxAccountExpanded: false, minimaxPendingCheckSince: 0, factoryAccountExpanded: false, factoryPendingCheckSince: 0, clineAccountExpanded: false, clinePendingCheckSince: 0, zaiAccountExpanded: false, zaiPendingCheckSince: 0, zaiteamAccountExpanded: false, zaiteamPendingCheckSince: 0, volcengineAccountExpanded: false, volcenginePendingCheckSince: 0, volcengineAgentExpanded: false, qoderAccountExpanded: false, qoderPendingCheckSince: 0, kimiAccountExpanded: false, kimiPendingCheckSince: 0, ollamaAccountExpanded: false, ollamaPendingCheckSince: 0, mimoAccountExpanded: false, mimoAccountError: '', antigravityAccountExpanded: false, antigravityAccountError: '', antigravitySignInBusy: false, workbuddyAccountExpanded: false, workbuddyAccountError: '', workbuddySignInBusy: false, workbuddyCancelBusy: false, workbuddyMutationBusy: false, workbuddyLoginAttempt: 0, workbuddyLoginStatusKey: '', workbuddyAccountsRevision: 0, copilotAccountExpanded: false, copilotManualExpanded: false, copilotPendingCheckSince: 0, copilotSignInBusy: false, copilotSignInCancelable: false, copilotSignInFlowId: '', copilotAuthorizeMessage: '', copilotLoginStatus: '', copilotErrorMessage: '', floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true, openSession: null, detailSort: 'time', recordingWindowShortcut: false, windowShortcutInvalid: false, toolSearchQuery: '', limitProviderSearchQuery: '', accountPanelMessages: {} };
+const state = { period: normalizeInitialViewValue(initialViewState.period, viewPeriodValues, 'today'), appUpdate: null, breakdown: normalizeInitialViewValue(initialViewState.breakdown, viewBreakdownValues, 'home'), viewSwitcherOpen: false, viewSwitcherHasOpened: false, limitDetailTooltipHasOpened: false, limitDetailTooltipActive: false, limitDetailTooltipRenderPending: false, settings: null, windowVisible: new URLSearchParams(window.location.search).get('windowHidden') !== '1', stats: null, homeHistory: null, homeHistoryBusy: false, homeHistoryRequested: false, homeHistorySignature: '', homeHistoryRetries: 0, homeHistoryRetryTimer: null, homeActivityScrollLeft: null, homeActivityFollowEnd: true, homeActivityResizeObserver: null, serviceStatus: null, serviceStatusBusy: false, serviceProvidersExpanded: false, trendSettingsExpanded: false, trendsActivating: false, homeSettingsExpanded: false, homeLimitSettingsExpanded: false, limitProviderSettingsExpanded: '', clientHealthExpanded: '', clientSources: clientSourceCacheApi.createClientSourceCache(), clientSourcesKey: '', clientSourcesRequest: 0, subscriptionEditingId: '', subscriptionTopUps: [], subscriptionFormBase: null, subscriptionEditorTransitionId: 0, serviceStatusTicker: null, refreshTimer: null, refreshBusy: false, refreshFeedbackTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, streamFailure: null, mode: 'idle', appInfo: null, systemDarkUi: false, tokscaleStatus: null, hubInfo: null, hubBuildStatus: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, codexAccountExpanded: false, codexAccountError: '', codexSignInBusy: false, codexSignInFlowId: '', codexLoginUrl: '', codexLoginStatus: '', codexLoginOutput: '', codexWorkspaceChoices: [], codexWorkspaceId: '', codexActiveAccount: null, codexPendingActiveAccount: null, codexPendingActiveAccountUntil: 0, codexPendingActiveAccountTimer: null, customPricingExpanded: false, claudeAccountExpanded: false, claudePendingCheckSince: 0, opencodeProfileCount: 0, opencodeCookieExpanded: false, openrouterProfileCount: 0, openrouterAccountExpanded: false, thirdPartyProfileCount: 0, thirdPartyAccountExpanded: false, deepseekAccountExpanded: false, deepseekPendingCheckSince: 0, minimaxAccountExpanded: false, minimaxProfileCount: 0, minimaxPendingCheckSince: 0, factoryAccountExpanded: false, factoryPendingCheckSince: 0, clineAccountExpanded: false, clinePendingCheckSince: 0, zaiAccountExpanded: false, zaiPendingCheckSince: 0, zaiteamAccountExpanded: false, zaiteamPendingCheckSince: 0, volcengineAccountExpanded: false, volcenginePendingCheckSince: 0, volcengineAgentExpanded: false, qoderAccountExpanded: false, qoderPendingCheckSince: 0, kimiAccountExpanded: false, kimiPendingCheckSince: 0, ollamaAccountExpanded: false, ollamaPendingCheckSince: 0, mimoAccountExpanded: false, mimoAccountError: '', antigravityAccountExpanded: false, antigravityAccountError: '', antigravitySignInBusy: false, workbuddyAccountExpanded: false, workbuddyAccountError: '', workbuddySignInBusy: false, workbuddyCancelBusy: false, workbuddyMutationBusy: false, workbuddyLoginAttempt: 0, workbuddyLoginStatusKey: '', workbuddyAccountsRevision: 0, copilotAccountExpanded: false, copilotManualExpanded: false, copilotPendingCheckSince: 0, copilotSignInBusy: false, copilotSignInCancelable: false, copilotSignInFlowId: '', copilotAuthorizeMessage: '', copilotLoginStatus: '', copilotErrorMessage: '', floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true, openSession: null, detailSort: 'time', recordingWindowShortcut: false, windowShortcutInvalid: false, toolSearchQuery: '', limitProviderSearchQuery: '', accountPanelMessages: {} };
 state.devinAccountExpanded = false;
 state.devinPendingCheckSince = 0;
 state.icloudStatus = null;
@@ -9820,6 +9821,7 @@ function syncSettingsForm() {
   renderSettingsSummaries();
   renderOpenCodeProfiles();
   renderOpenRouterProfiles();
+  renderMinimaxProfiles();
   renderThirdPartyProfiles();
   buildAppearanceColorControls();
   renderTokscaleStatus();
@@ -14525,6 +14527,7 @@ function renderStatsUpdate() {
   renderToolPreferences();
   renderWslPanel();
   updateOpenRouterProfilesStatus();
+  updateMinimaxProfilesStatus();
   updateThirdPartyProfilesStatus();
   renderExternalProviderStatus('volcengine');
   renderExternalProviderStatus('kimi');
@@ -17822,10 +17825,11 @@ function updateNamedApiProfilesStatus({
   providerId,
   profileSettingsKey,
   profileCountStateKey,
-  statusText
+  statusText,
+  selectProviders = (rows) => rows
 }) {
   const providerEnabled = limitProviderEnabled(providerId);
-  const providers = localProviderStatuses(providerId);
+  const providers = selectProviders(localProviderStatuses(providerId));
   const byName = new Map(providers.map((provider) => [
     String(provider.accountName || provider.accountLabel || ''),
     provider
@@ -17854,6 +17858,34 @@ function updateNamedApiProfilesStatus({
         ? t(`settings.${providerId}.nAccounts`, { count: total })
         : t(`settings.${providerId}.connected`, { linked, total })
   });
+}
+
+function updateMinimaxProfilesStatus() {
+  updateNamedApiProfilesStatus({
+    providerId: 'minimax', profileSettingsKey: 'minimaxApiProfiles', profileCountStateKey: 'minimaxProfileCount',
+    selectProviders: (rows) => rows.filter(row => row.source === 'api'),
+    statusText: (provider, options) => {
+      const status = limitProviderPresentationApi.namedApiProfileStatus(provider, options);
+      if (status === 'linked') return '✓';
+      if (status === 'hidden') return '';
+      return t(status === 'disabled' ? 'settings.profiles.disabled' : `settings.minimax.${status === 'invalid' ? 'invalidKey' : status === 'checking' ? 'checking' : 'unavailable'}`);
+    }
+  });
+}
+
+function minimaxProfileErrorText(result) {
+  if (result?.errorCode === 'invalidName') return t('settings.minimax.invalidName');
+  return result?.error || t(result?.status === 'notConfigured' ? 'settings.minimax.statusNotSet'
+    : result?.status === 'unauthorized' ? 'settings.minimax.invalidKey' : 'settings.minimax.unavailable');
+}
+
+function minimaxBillingUrl(name, profile) {
+  const row = localProviderStatuses('minimax').find(row => row.source === 'api' && row.accountName === name);
+  const region = profile.apiRegion || state.settings?.minimaxApiRegion || 'auto';
+  const intl = region === 'intl' || (region === 'auto' && row?.region === 'en');
+  const origin = intl ? 'https://platform.minimax.io' : 'https://platform.minimaxi.com';
+  const path = (profile.billingMode || state.settings?.minimaxBillingMode) === 'api' ? 'balance' : 'token-plan';
+  return `${origin}/user-center/payment/${path}`;
 }
 
 function updateOpenRouterProfilesStatus() {
@@ -17912,7 +17944,9 @@ function appendNamedApiProfileRow(listEl, config) {
     rerender,
     updateStatus,
     errorText,
-    detail = ''
+    detail = '',
+    editProfile = null,
+    openProfile = null
   } = config;
   const item = document.createElement('div');
   item.className = 'opencode-profile-item';
@@ -18017,6 +18051,23 @@ function appendNamedApiProfileRow(listEl, config) {
   info.textContent = t(`settings.${providerId}.checking`);
   rightBox.append(info);
 
+  if (openProfile) {
+    const open = document.createElement('button');
+    open.className = 'profile-open';
+    open.textContent = '↗';
+    open.setAttribute('aria-label', t(`settings.${providerId}.openBrowser`));
+    open.addEventListener('click', () => openProfile(env ? 'environment' : name, profile));
+    rightBox.append(open);
+  }
+
+  if (!env && editProfile) {
+    const edit = document.createElement('button');
+    edit.className = 'profile-edit';
+    edit.textContent = t('settings.subscriptions.edit');
+    edit.addEventListener('click', () => editProfile(name, profile));
+    rightBox.append(edit);
+  }
+
   if (!env) {
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'profile-delete';
@@ -18051,7 +18102,9 @@ function renderNamedApiProfiles(config) {
     rerender,
     updateStatus,
     errorText,
-    detailForProfile = () => ''
+    detailForProfile = () => '',
+    editProfile = null,
+    openProfile = null
   } = config;
   const listEl = document.getElementById(`${providerId}ProfileList`);
   if (!listEl || !api) return;
@@ -18083,7 +18136,7 @@ function renderNamedApiProfiles(config) {
         rerender,
         updateStatus,
         errorText,
-        detail: detailForProfile(profile)
+        detail: detailForProfile(profile), editProfile, openProfile
       });
     }
     if (hasEnvVar) {
@@ -18093,7 +18146,7 @@ function renderNamedApiProfiles(config) {
         env: true,
         rerender,
         updateStatus,
-        errorText
+        errorText, openProfile
       });
     }
     updateStatus();
@@ -18117,6 +18170,29 @@ function renderOpenRouterProfiles() {
     rerender: renderOpenRouterProfiles,
     updateStatus: updateOpenRouterProfilesStatus,
     errorText: openrouterProfileErrorText
+  });
+}
+
+function renderMinimaxProfiles() {
+  renderNamedApiProfiles({
+    providerId: 'minimax', profileSettingsKey: 'minimaxApiProfiles', envConfiguredKey: 'minimaxEnvConfigured',
+    profileCountStateKey: 'minimaxProfileCount', api: window.tokenMonitor.minimax,
+    rerender: renderMinimaxProfiles, updateStatus: updateMinimaxProfilesStatus, errorText: minimaxProfileErrorText,
+    openProfile: (name, profile) => window.tokenMonitor.openExternal(minimaxBillingUrl(name, profile)),
+    editProfile: (name, profile) => {
+      document.getElementById('minimaxProfileName').value = name;
+      document.getElementById('minimaxApiKeyInput').value = '';
+      document.getElementById('minimaxBillingModeInput').value = profile.billingMode;
+      document.getElementById('minimaxApiRegionInput').value = profile.apiRegion || 'auto';
+      document.getElementById('minimaxAddDetails').classList.remove('hidden');
+      document.getElementById('minimaxAddToggle').setAttribute('aria-expanded', 'true');
+      document.getElementById('minimaxAddForm').classList.add('expanded');
+      document.getElementById('minimaxProfileName').focus();
+    },
+    detailForProfile: (profile) => [
+      t(`settings.minimax.${profile.billingMode === 'api' ? 'billingApi' : 'billingTokenPlan'}`),
+      t(`settings.minimax.${profile.apiRegion === 'cn' ? 'regionCn' : profile.apiRegion === 'intl' ? 'regionIntl' : 'regionAuto'}`)
+    ].join(' · ')
   });
 }
 
@@ -18886,6 +18962,44 @@ function setupCursorAccountUI() {
         setAccountShellError('opencode', opencodeSaveErrorText(result));
       };
       await submit(false);
+    }));
+  }
+
+  const minimaxToggle = document.getElementById('minimaxSettingsToggle');
+  if (minimaxToggle) {
+    minimaxToggle.addEventListener('click', () => {
+      const expanded = !state.minimaxAccountExpanded;
+      setExternalAccountExpanded('minimax', expanded);
+      if (expanded) renderMinimaxProfiles();
+    });
+    const add = document.getElementById('minimaxAddDetails');
+    document.getElementById('minimaxAddToggle').addEventListener('click', (event) => {
+      const expanded = add.classList.contains('hidden');
+      add.classList.toggle('hidden', !expanded);
+      event.currentTarget.setAttribute('aria-expanded', String(expanded));
+      document.getElementById('minimaxAddForm').classList.toggle('expanded', expanded);
+    });
+    document.getElementById('minimaxOpenBrowser').addEventListener('click', () => {
+      const entries = Object.entries(state.settings?.minimaxApiProfiles || {});
+      const name = document.getElementById('minimaxProfileName').value.trim();
+      const [target, profile] = !name && add.classList.contains('hidden') && entries.length === 1 ? entries[0]
+        : [name, { apiRegion: document.getElementById('minimaxApiRegionInput').value,
+          billingMode: document.getElementById('minimaxBillingModeInput').value }];
+      window.tokenMonitor.openExternal(minimaxBillingUrl(target, profile));
+    });
+    document.getElementById('minimaxRefreshButton').addEventListener('click', () => refreshLimitProviderQuota('minimax'));
+    const submit = document.getElementById('minimaxProfileSubmit');
+    submit.addEventListener('click', () => accountProfileSaves.run('minimax', submit, async () => {
+      setAccountShellError('minimax', '');
+      const name = document.getElementById('minimaxProfileName');
+      const key = document.getElementById('minimaxApiKeyInput');
+      const result = await window.tokenMonitor.minimax.saveProfile({ name: name.value, apiKey: key.value,
+        billingMode: document.getElementById('minimaxBillingModeInput').value,
+        apiRegion: document.getElementById('minimaxApiRegionInput').value });
+      if (!result?.ok) { setAccountShellError('minimax', minimaxProfileErrorText(result)); return; }
+      name.value = ''; key.value = '';
+      renderMinimaxProfiles();
+      await refreshStats();
     }));
   }
 

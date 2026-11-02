@@ -746,16 +746,15 @@ test('Codex system account switching is exposed from limits account rows', () =>
   assert.doesNotMatch(renderLimits, /codexSwitchPopoverRenderPending/);
 });
 
-test('DeepSeek and MiniMax API key panels come from the generic account form', () => {
+test('DeepSeek uses the generic form and MiniMax profiles use the shared account shell', () => {
   const html = readRendererFile('index.html');
   const css = readRendererFile('styles.css');
   const { limitAccountFormsForRenderer } = require('../../src/electron/limits/accountSettings');
   const forms = limitAccountFormsForRenderer();
   const expectedFields = {
-    deepseek: [['deepseekApiKey', 'password']],
-    minimax: [['minimaxBillingMode', 'select'], ['minimaxApiRegion', 'select'], ['minimaxApiKey', 'password']]
+    deepseek: [['deepseekApiKey', 'password']]
   };
-  for (const id of ['deepseek', 'minimax']) {
+  for (const id of ['deepseek']) {
     assert.doesNotMatch(html, new RegExp(`id="${id}(AccountGroup|ManualPanel|ApiKeyInput)"`), id);
     assert.doesNotMatch(css, new RegExp(`#${id}ManualPanel`), id);
     const form = forms.find((candidate) => candidate.id === id);
@@ -778,40 +777,14 @@ test('DeepSeek and MiniMax API key panels come from the generic account form', (
   }
   assert.deepEqual(forms.find(({ id }) => id === 'deepseek').openUrl, { url: 'https://platform.deepseek.com/api_keys' });
 
-  // MiniMax follows the selection, with successful-probe status for Auto;
-  // the form declares that, so the renderer has no MiniMax branch of its own.
   const app = readRendererFile('app.js');
-  assert.deepEqual(forms.find(({ id }) => id === 'minimax').openUrl, {
-    byField: 'minimaxApiRegion',
-    urls: {
-      cn: 'https://platform.minimaxi.com/user-center/payment/token-plan',
-      intl: 'https://platform.minimax.io/user-center/payment/token-plan'
-    },
-    byStatus: 'region',
-    statusUrls: {
-      cn: 'https://platform.minimaxi.com/user-center/payment/token-plan',
-      en: 'https://platform.minimax.io/user-center/payment/token-plan'
-    },
-    default: 'https://platform.minimaxi.com/user-center/payment/token-plan',
-    pathByField: {
-      byField: 'minimaxBillingMode',
-      values: { 'token-plan': '/user-center/payment/token-plan', api: '/user-center/payment/balance' }
-    }
-  });
-
-  // The region is a plain setting beside the credential, so Clear leaves it
-  // alone and it stays reachable once a key is saved — a user whose auto-probe
-  // keeps flapping needs the switch after linking, not before.
-  const minimax = forms.find(({ id }) => id === 'minimax');
-  const billingMode = minimax.fields.find(({ key }) => key === 'minimaxBillingMode');
-  assert.deepEqual(billingMode.options.map(({ value }) => value), ['token-plan', 'api']);
-  const region = minimax.fields.find(({ key }) => key === 'minimaxApiRegion');
-  assert.equal(region.saveOnChange, true);
-  assert.deepEqual(region.options.map(({ value }) => value), ['auto', 'cn', 'intl']);
-  for (const { labelKey } of region.options) {
-    assert.match(labelKey, /^settings\.minimax\./, labelKey);
-  }
-  assert.deepEqual(minimax.top.filter(block => block.field), [{ field: 'minimaxBillingMode' }, { field: 'minimaxApiRegion' }]);
+  const minimax = require('../../src/shared/providers/minimax/account');
+  assert.equal(minimax.form.kind, 'custom');
+  assert.equal(forms.some(({ id }) => id === 'minimax'), false);
+  assert.match(html, /id="minimaxProfileList"/);
+  assert.match(html, /id="minimaxApiRegionInput"/);
+  assert.match(html, /id="minimaxBillingModeInput"/);
+  assert.match(app, /function renderMinimaxProfiles[\s\S]*?renderNamedApiProfiles/);
 
   // The region never becomes a credential: no store path, so it stays in
   // settings.json only after a selection; an implicit default stays empty.

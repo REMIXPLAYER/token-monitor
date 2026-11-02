@@ -188,6 +188,7 @@ const {
   rendererOmittedAccountKeys
 } = require('./limits/accountSettings');
 const { createCredentialCommands } = require('./limits/credentialCommands');
+const { createMinimaxProfiles } = require('./providers/minimax/profiles');
 const { createClaudeManagedAccounts, claudeAccountChangeScope } = require('./providers/claude/managedAccounts');
 const { copilotLoginErrorMessage, isAllowedVerificationUrl, runCopilotDeviceFlowLogin } = require('../shared/providers/copilot/deviceFlow');
 const {
@@ -8108,6 +8109,7 @@ app.whenReady().then(() => {
     patch = skinSelection.patch;
     const contentRuntime = getSyncContentRuntime();
     credentialCommands.noteSettingsPatch(patch);
+    minimaxProfiles.noteSettingsPatch(patch);
     const previousSettingsState = settings;
     const previousRuntimeSettings = JSON.parse(JSON.stringify(settings));
     const previousNativeMaterial = nativeBlurEnabled();
@@ -9382,6 +9384,21 @@ app.whenReady().then(() => {
     void queueLimitInvalidation({ provider: 'opencode' }, 'ambient-toggle', { clear: true });
     return { ok: true };
   });
+  const minimaxProfiles = createMinimaxProfiles({
+    getSettings: () => settings, saveSettings,
+    probeDeps: () => electronProviderDeps({ env: {}, signal: AbortSignal.timeout(15_000) }),
+    changed: (accountKey, refresh, reason) => {
+      credentialCommands.noteSettingsPatch({ minimaxApiKey: '' });
+      void queueLimitInvalidation({ provider: 'minimax', source: 'api', accountKey }, reason, { clear: true, refresh });
+      pushSettingsToRenderer();
+    }
+  });
+  for (const method of ['getProfiles', 'saveProfile', 'deleteProfile', 'renameProfile', 'setProfileEnabled']) {
+    ipcMain.handle(`minimax:${method}`, async (_event, ...args) => {
+      try { return await minimaxProfiles[method](...args); }
+      catch (error) { return { ok: false, error: error?.message || 'Could not save MiniMax profile' }; }
+    });
+  }
   ipcMain.handle('openrouter:getProfiles', async () => {
     return {
       profiles: redactOpenRouterProfilesForRenderer(settings.openrouterProfiles || {}),

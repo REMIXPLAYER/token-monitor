@@ -5,6 +5,8 @@ module.exports = {
   id: 'minimax',
   fetch: 'fetchMinimaxLimits',
   fields: [
+    { key: 'minimaxApiProfiles', kind: 'profiles', invalidationSource: 'api',
+      storePath: ['providers', 'minimax', 'profiles'], configDefault: {}, persist: 'never', project: 'redact' },
     {
       key: 'minimaxApiKey',
       kind: 'credential',
@@ -45,62 +47,12 @@ module.exports = {
     pendingKey: 'minimaxPendingCheckSince'
   },
   form: {
-    titleKey: 'settings.minimax.title',
-    openKey: 'settings.minimax.openBrowser',
-    clearKey: 'settings.minimax.clearApiKey',
-    saveKey: 'settings.minimax.saveApiKey',
-    emptyKey: 'settings.minimax.statusNotSet',
-    failedKey: 'settings.minimax.saveFailed',
+    kind: 'custom',
     fields: [
-      {
-        key: 'minimaxBillingMode',
-        input: 'select',
-        labelKey: 'settings.minimax.billingMode',
-        options: [
-          { value: 'token-plan', labelKey: 'settings.minimax.billingTokenPlan' },
-          { value: 'api', labelKey: 'settings.minimax.billingApi' }
-        ],
-        saveOnChange: true,
-        submitWithCredential: false
-      },
-      {
-        key: 'minimaxApiRegion',
-        input: 'select',
-        labelKey: 'settings.minimax.apiRegion',
-        options: [
-          { value: 'auto', labelKey: 'settings.minimax.regionAuto' },
-          { value: 'cn', labelKey: 'settings.minimax.regionCn' },
-          { value: 'intl', labelKey: 'settings.minimax.regionIntl' }
-        ],
-        saveOnChange: true,
-        submitWithCredential: false
-      },
-      { key: 'minimaxApiKey', input: 'password', placeholderKey: 'settings.minimax.apiKeyPlaceholder', required: true }
-    ],
-    top: [
-      { field: 'minimaxBillingMode' }, { field: 'minimaxApiRegion' },
-      { note: 'settings.minimax.spendNote', when: { field: 'minimaxBillingMode', values: ['api'] } }
-    ],
-    manual: [{ note: 'settings.minimax.note' }, { field: 'minimaxApiKey' }],
-    // Explicit choices follow the select even before the first probe. Auto
-    // follows the last successful probe, with the historical CN fallback.
-    openUrl: {
-      byField: 'minimaxApiRegion',
-      urls: {
-        cn: 'https://platform.minimaxi.com/user-center/payment/token-plan',
-        intl: 'https://platform.minimax.io/user-center/payment/token-plan'
-      },
-      byStatus: 'region',
-      statusUrls: {
-        cn: 'https://platform.minimaxi.com/user-center/payment/token-plan',
-        en: 'https://platform.minimax.io/user-center/payment/token-plan'
-      },
-      default: 'https://platform.minimaxi.com/user-center/payment/token-plan',
-      pathByField: {
-        byField: 'minimaxBillingMode',
-        values: { 'token-plan': '/user-center/payment/token-plan', api: '/user-center/payment/balance' }
-      }
-    }
+      { key: 'minimaxApiKey', required: true },
+      { key: 'minimaxBillingMode', secret: false, submitWithCredential: false },
+      { key: 'minimaxApiRegion', secret: false, submitWithCredential: false }
+    ]
   },
   urlPolicy: [
     { hosts: ['platform.minimaxi.com'] },

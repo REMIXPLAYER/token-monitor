@@ -7578,7 +7578,8 @@ html.native-liquid-glass .view-switcher-menu-item { border-radius: 9px; }
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.opencode-profile-item .profile-delete {
+.opencode-profile-item .profile-delete,
+.opencode-profile-item .profile-open {
   flex: 0 0 auto;
   width: 18px;
   height: 18px;
@@ -7594,10 +7595,12 @@ html.native-liquid-glass .view-switcher-menu-item { border-radius: 9px; }
   opacity: 0.55;
   transition: opacity 0.15s, color 0.15s, background 0.15s;
 }
-.opencode-profile-item:hover .profile-delete {
+.opencode-profile-item:hover .profile-delete,
+.opencode-profile-item:hover .profile-open {
   opacity: 0.85;
 }
-.opencode-profile-item .profile-delete:hover {
+.opencode-profile-item .profile-delete:hover,
+.opencode-profile-item .profile-open:hover {
   opacity: 1;
   color: var(--text);
 }
@@ -7605,6 +7608,17 @@ html.native-liquid-glass .view-switcher-menu-item { border-radius: 9px; }
   opacity: 1;
   color: var(--red);
   background: rgba(255, 91, 91, 0.12);
+}
+.opencode-profile-item .profile-edit {
+  padding: 2px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  font-size: 0.5625rem;
+  cursor: pointer;
+}
+.opencode-profile-item .profile-edit:hover {
+  color: var(--text);
 }
 .opencode-add-form {
   margin-top: 6px;

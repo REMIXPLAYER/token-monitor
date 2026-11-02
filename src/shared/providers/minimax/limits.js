@@ -10,6 +10,7 @@ const { cleanSecret, numberOrNull: parseNumberOrNull, errorWithStatus, envValue,
 const { runCapturedCliProcess } = require('../../limits/cliProcess');
 const { hashKey } = require('../../hashKey');
 const { mcodeDataDirs } = require('../mcode/paths');
+const { normalizeNamedProfileName } = require('../../namedProfile');
 
 const MINIMAX_KEY_NAMES = ['MINIMAX_CODING_API_KEY'];
 
@@ -38,13 +39,13 @@ const MINIMAX_REGION_MEMORY_STATE_KEY = 'minimax.last-good-region';
 
 function rememberedMinimaxRegion(deps = {}) {
   if (!(deps.providerRuntimeState instanceof Map)) return '';
-  const remembered = deps.providerRuntimeState.get(MINIMAX_REGION_MEMORY_STATE_KEY);
+  const remembered = deps.providerRuntimeState.get(deps.minimaxRegionStateKey || MINIMAX_REGION_MEMORY_STATE_KEY);
   return MINIMAX_REGIONS.includes(remembered) ? remembered : '';
 }
 
 function storeMinimaxRegionMemory(deps = {}, region) {
   if (!(deps.providerRuntimeState instanceof Map)) return;
-  deps.providerRuntimeState.set(MINIMAX_REGION_MEMORY_STATE_KEY, region);
+  deps.providerRuntimeState.set(deps.minimaxRegionStateKey || MINIMAX_REGION_MEMORY_STATE_KEY, region);
 }
 
 // JSON syntax errors establish a response; they must not trigger regional
@@ -69,6 +70,48 @@ function minimaxToken(env = process.env, explicitKey = '') {
     if (raw) return raw;
   }
   return '';
+}
+
+function minimaxProfileName(value) {
+  return normalizeNamedProfileName(value, { reservedNames: ['environment'] });
+}
+
+// Legacy settings remain readable; a profile edit can move that key into the map.
+function minimaxApiProfiles(options = {}) {
+  const profiles = Object.create(null);
+  for (const [rawName, value] of Object.entries(options.minimaxApiProfiles || {})) {
+    const name = minimaxProfileName(rawName);
+    const apiKey = minimaxToken({}, value?.apiKey);
+    if (!name || !apiKey) continue;
+    profiles[name] = { apiKey, enabled: value.enabled !== false,
+      billingMode: normalizeMinimaxBillingMode(value.billingMode),
+      apiRegion: normalizeMinimaxRegionSetting(value.apiRegion) };
+  }
+  const legacyKey = minimaxToken({}, options.minimaxApiKey);
+  if (legacyKey && !Object.values(profiles).some(profile => profile.apiKey === legacyKey)) {
+    let name = 'default';
+    for (let suffix = 2; Object.hasOwn(profiles, name); suffix++) name = `default-${suffix}`;
+    profiles[name] = { apiKey: legacyKey, enabled: true,
+      billingMode: normalizeMinimaxBillingMode(options.minimaxBillingMode),
+      apiRegion: normalizeMinimaxRegionSetting(options.minimaxApiRegion || options.minimaxApiHost) };
+  }
+  return profiles;
+}
+
+function configuredMinimaxAccounts(options = {}, deps = {}) {
+  const seen = new Set();
+  const accounts = [];
+  for (const [name, profile] of Object.entries(minimaxApiProfiles(options))) {
+    if (seen.has(profile.apiKey)) continue;
+    // A disabled stored key must not return through the legacy/env fallback.
+    seen.add(profile.apiKey);
+    if (profile.enabled) accounts.push({ name, ...profile });
+  }
+  const envKey = !minimaxToken({}, options.minimaxApiKey) && minimaxToken(deps.env || process.env);
+  if (envKey && !seen.has(envKey)) accounts.push({ name: 'environment', apiKey: envKey,
+    billingMode: normalizeMinimaxBillingMode(options.minimaxBillingMode),
+    apiRegion: normalizeMinimaxRegionSetting(options.minimaxApiRegion || options.minimaxApiHost) });
+  return accounts;
 }
 
 function millisToIso8601(value) {
@@ -761,27 +804,43 @@ async function fetchMinimaxLimits(options = {}, deps = {}) {
   const context = { now, updatedAt: new Date(now).toISOString() };
   // Key probes must not let a healthy local login vouch for a bad draft.
   if (deps.probe) return fetchMinimaxApiLimits(options, deps, context);
-  const key = minimaxToken(deps.env || process.env, options.minimaxApiKey);
-  const apiAccountKey = key ? hashKey('minimax', key) : '';
+  const accounts = configuredMinimaxAccounts(options, deps);
+  const apiKeys = new Set(accounts.map(account => hashKey('minimax', account.apiKey)));
   const scope = options.limitRefreshScope?.provider === 'minimax' ? options.limitRefreshScope : null;
   const previous = options.previousLimits?.providers || [];
-  const scoped = scope?.accountKey || scope?.accountLabel;
-  const apiScope = scope?.accountKey
-    ? scope.accountKey === apiAccountKey || previous.some(row => row.provider === 'minimax' && row.source === 'api' && row.accountKey === scope.accountKey)
-    : ['Token Plan', 'Pay-as-you-go'].includes(scope?.accountLabel);
-  if (apiScope && scope?.accountKey && scope.accountKey !== apiAccountKey) {
-    return [{ provider: 'minimax', accountKey: scope.accountKey, removed: true }];
+  const scoped = scope?.accountKey || scope?.accountName || scope?.accountLabel;
+  const apiScope = scope?.source === 'api' || Boolean(scope?.accountName)
+    || (scope?.accountKey ? apiKeys.has(scope.accountKey)
+      || previous.some(row => row.provider === 'minimax' && row.source === 'api' && row.accountKey === scope.accountKey)
+      : ['Token Plan', 'Pay-as-you-go'].includes(scope?.accountLabel));
+  const selected = accounts.filter(account => !apiScope || (
+    scope?.accountKey ? hashKey('minimax', account.apiKey) === scope.accountKey
+      : !scope?.accountName || account.name === scope.accountName));
+  if (apiScope && scoped && !selected.length) {
+    return previous.filter(row => row.provider === 'minimax' && row.source === 'api'
+      && (scope.accountKey ? row.accountKey === scope.accountKey : row.accountName === scope.accountName))
+      .map(row => ({ provider: 'minimax', accountKey: row.accountKey, removed: true }));
   }
   const [api, code] = await Promise.all([
-    (!scoped || apiScope)
-      ? fetchMinimaxApiLimits(options, deps, context) : null,
+    (!scoped || apiScope) ? Promise.all(selected.map(async account => {
+      const row = await fetchMinimaxApiLimits({ ...options, minimaxApiKey: account.apiKey,
+        minimaxBillingMode: account.billingMode, minimaxApiRegion: account.apiRegion },
+      Object.keys(options.minimaxApiProfiles || {}).length ? { ...deps,
+        minimaxRegionStateKey: `${MINIMAX_REGION_MEMORY_STATE_KEY}:${hashKey('minimax', account.apiKey)}` } : deps, context);
+      return { ...row, accountName: account.name };
+    })) : [],
     !apiScope ? fetchMinimaxCodeRows(options, deps, context) : null
   ]);
-  const rows = [api, ...(Array.isArray(code) ? code : [code])].filter(Boolean);
-  await linkMinimaxAccounts(rows, options, deps, context, key, apiAccountKey);
+  const rows = [...api, ...(Array.isArray(code) ? code : [code])].filter(Boolean);
+  if (!api.length && !scoped) rows.unshift(normalizeLimitProvider({ provider: 'minimax', source: 'api',
+    status: 'notConfigured', updatedAt: context.updatedAt, windows: [] }));
+  // One peer hash represents a pair, not ownership of every configured key.
+  if (accounts.length === 1) await linkMinimaxAccounts(rows, { ...options,
+    minimaxBillingMode: accounts[0].billingMode, minimaxApiRegion: accounts[0].apiRegion
+  }, deps, context, accounts[0].apiKey, hashKey('minimax', accounts[0].apiKey));
   if (!scoped) {
     rows.push(...previous.filter(row => row.provider === 'minimax' && row.source === 'api'
-      && row.accountKey && row.accountKey !== apiAccountKey)
+      && row.accountKey && !apiKeys.has(row.accountKey))
       .map(row => ({ provider: 'minimax', accountKey: row.accountKey, removed: true })));
   }
   // A missing optional lane must not add an unconfigured card beside a live lane.
@@ -807,6 +866,9 @@ module.exports = {
   MINIMAX_TOKEN_PLAN_REMAINS_URL_EN,
   isMinimaxTransportError,
   minimaxToken,
+  minimaxProfileName,
+  minimaxApiProfiles,
+  configuredMinimaxAccounts,
   minimaxBaseUrl,
   minimaxRegion,
   normalizeMinimaxRegionSetting,

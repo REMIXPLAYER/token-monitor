@@ -112,6 +112,7 @@ test('CREDENTIAL_SETTING_PATHS is exactly this set (the store is default-deny)',
     devinBearerToken: ['providers', 'devin', 'bearerToken'],
     deepseekApiKey: ['providers', 'deepseek', 'apiKey'],
     openrouterProfiles: ['providers', 'openrouter', 'profiles'],
+    minimaxApiProfiles: ['providers', 'minimax', 'profiles'],
     minimaxApiKey: ['providers', 'minimax', 'apiKey'],
     volcengineAccessKeyId: ['providers', 'volcengine', 'accessKeyId'],
     volcengineSecretAccessKey: ['providers', 'volcengine', 'secretAccessKey'],
@@ -171,7 +172,7 @@ test('LIMIT_PROVIDER_SETTING_KEYS is exactly this set (drives per-provider refre
     manus: ['manusSessionToken'],
     muse: ['museWebCookie'],
     openrouter: ['openrouterProfiles'],
-    minimax: ['minimaxApiKey', 'minimaxApiRegion', 'minimaxBillingMode'],
+    minimax: ['minimaxApiProfiles', 'minimaxApiKey', 'minimaxApiRegion', 'minimaxBillingMode'],
     volcengine: [
       'volcengineAccessKeyId', 'volcengineSecretAccessKey', 'volcengineRegion',
       'volcengineAgentAccessKeyId', 'volcengineAgentSecretAccessKey', 'volcengineAgentRegion'
