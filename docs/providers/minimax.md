@@ -25,6 +25,8 @@ Code points use `CREDITS`, never CNY/USD. Membership's `op_credit_summary.total_
 
 Add each API key with its billing type; no user-defined account name is needed. New keys use Auto region discovery. Readding the same key updates its entry instead of collecting it twice. Removing a saved key never signs out Code. Environment credentials are read-only in settings. Different credentials may observe the same wallet; never sum their balances or allowances.
 
+The settings list labels each saved key `Account N` in saved order and the environment credential `Environment`. These are display labels; limits surfaces still group readings by confirmed GroupId.
+
 Existing `minimaxApiKey`, billing and region settings remain readable without a startup migration. An explicit key change imports the legacy key into the shared credential store, preserving its billing type and region, including an unset region that follows the environment. Previously saved key entries and disabled flags remain readable; explicitly readding a disabled key enables it. Raw keys never return to the renderer.
 
 An explicit legacy key continues to override the environment key. With multiple saved keys, a distinct environment key is an additional source. Identical credentials are collected once; a disabled saved key blocks that credential from returning through legacy or environment fallback. Removing its saved entry releases the fallback.
@@ -46,7 +48,7 @@ Periods use the console's calendar-date filters. Bills refresh daily and can lag
 
 Spend values are replacement snapshots, not increments or estimates from balance changes. They use the balance reading's key, resolved region and injected transport. A failed, denied or malformed optional result leaves that figure unknown without invalidating the balance, changing region or selecting another credential.
 
-Code OAuth does not query the API wallet or cash-billing endpoints and never borrows an saved API key. Its status and points are independent of API credential failures. A Code action's payment pool does not establish which API credential can observe it: same-group evidence alone does not prove complete cross-key or team coverage. Do not automatically merge these lane identities or assign API Spend to Code.
+Code OAuth does not query the API wallet or cash-billing endpoints and never borrows a saved API key. Its status and points are independent of API credential failures. A Code action's payment pool does not establish which API credential can observe it: same-group evidence alone does not prove complete cross-key or team coverage. Do not automatically merge these lane identities or assign API Spend to Code.
 
 OAuth and a Token Plan key can observe the same subscription's quota. Those readings are separate observations, not additional allowances; do not add them together or infer common ownership merely because their limits match.
 
