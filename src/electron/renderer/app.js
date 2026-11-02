@@ -17875,7 +17875,7 @@ function updateMinimaxProfilesStatus() {
 
 function minimaxProfileErrorText(result) {
   if (result?.errorCode === 'invalidName') return t('settings.minimax.invalidName');
-  return result?.error || t(result?.status === 'notConfigured' ? 'settings.minimax.statusNotSet'
+  return result?.error || t(['required', 'notConfigured'].includes(result?.status) ? 'settings.minimax.statusNotSet'
     : result?.status === 'unauthorized' ? 'settings.minimax.invalidKey' : 'settings.minimax.unavailable');
 }
 
@@ -17946,7 +17946,6 @@ function appendNamedApiProfileRow(listEl, config) {
     updateStatus,
     errorText,
     detail = '',
-    editProfile = null,
     openProfile = null
   } = config;
   const item = document.createElement('div');
@@ -18061,14 +18060,6 @@ function appendNamedApiProfileRow(listEl, config) {
     rightBox.append(open);
   }
 
-  if (!env && editProfile) {
-    const edit = document.createElement('button');
-    edit.className = 'profile-edit';
-    edit.textContent = t('settings.subscriptions.edit');
-    edit.addEventListener('click', () => editProfile(name, profile));
-    rightBox.append(edit);
-  }
-
   if (!env) {
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'profile-delete';
@@ -18104,7 +18095,6 @@ function renderNamedApiProfiles(config) {
     updateStatus,
     errorText,
     detailForProfile = () => '',
-    editProfile = null,
     openProfile = null
   } = config;
   const listEl = document.getElementById(`${providerId}ProfileList`);
@@ -18137,7 +18127,7 @@ function renderNamedApiProfiles(config) {
         rerender,
         updateStatus,
         errorText,
-        detail: detailForProfile(profile), editProfile, openProfile
+        detail: detailForProfile(profile), openProfile
       });
     }
     if (hasEnvVar) {
@@ -18180,16 +18170,6 @@ function renderMinimaxProfiles() {
     profileCountStateKey: 'minimaxProfileCount', api: window.tokenMonitor.minimax,
     rerender: renderMinimaxProfiles, updateStatus: updateMinimaxProfilesStatus, errorText: minimaxProfileErrorText,
     openProfile: (name, profile) => window.tokenMonitor.openExternal(minimaxBillingUrl(name, profile)),
-    editProfile: (name, profile) => {
-      document.getElementById('minimaxProfileName').value = name;
-      document.getElementById('minimaxApiKeyInput').value = '';
-      document.getElementById('minimaxBillingModeInput').value = profile.billingMode;
-      document.getElementById('minimaxApiRegionInput').value = profile.apiRegion;
-      document.getElementById('minimaxAddDetails').classList.remove('hidden');
-      document.getElementById('minimaxAddToggle').setAttribute('aria-expanded', 'true');
-      document.getElementById('minimaxAddForm').classList.add('expanded');
-      document.getElementById('minimaxProfileName').focus();
-    },
     detailForProfile: (profile) => [
       t(`settings.minimax.${profile.billingMode === 'api' ? 'billingApi' : 'billingTokenPlan'}`),
       t(`settings.minimax.${profile.apiRegion === 'cn' ? 'regionCn' : profile.apiRegion === 'intl' ? 'regionIntl' : profile.apiRegion === '' ? 'regionInherited' : 'regionAuto'}`)

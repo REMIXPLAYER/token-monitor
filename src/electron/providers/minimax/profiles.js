@@ -56,11 +56,10 @@ function createMinimaxProfiles({ getSettings, saveSettings, probeDeps, changed, 
     async saveProfile(input = {}) {
       const name = limits.minimaxProfileName(input.name);
       if (!name) return { ok: false, errorCode: 'invalidName' };
-      const previous = profiles()[name];
-      const profileRegion = limits.normalizeMinimaxRegionSetting(input.apiRegion ?? previous?.apiRegion ?? 'auto');
+      const profileRegion = limits.normalizeMinimaxRegionSetting(input.apiRegion ?? 'auto');
       const result = await commands.saveCredential('minimax', {
         profileName: name, profileRegion,
-        minimaxApiKey: input.apiKey || previous?.apiKey || '',
+        minimaxApiKey: input.apiKey,
         minimaxBillingMode: input.billingMode,
         minimaxApiRegion: limits.minimaxRegion({ minimaxApiRegion: profileRegion }, env)
       });

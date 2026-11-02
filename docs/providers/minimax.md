@@ -29,7 +29,7 @@ Existing `minimaxApiKey`, billing and region settings remain readable without a 
 
 An explicit legacy key continues to override the environment key. With named profiles, a distinct environment key is an additional read-only account. Identical credentials are collected once; a disabled saved key blocks the same credential from returning through legacy or environment fallback. Deleting that profile releases the fallback.
 
-Saving a key selects MiniMax and enables limits, following shared credential-save behavior. Renaming, deleting or changing a profile's enabled flag preserves the provider selection and global limits switch. An edit with a blank key retains its existing credential; another named profile cannot reuse that key. Save-time probes validate only the supplied API key, without Code or Spend. Invalid credentials are rejected; an indeterminate response follows the shared save policy.
+Saving a key selects MiniMax and enables limits, following shared credential-save behavior. Renaming, deleting or changing a profile's enabled flag preserves the provider selection and global limits switch. Saving or replacing a named profile requires its API key; another named profile cannot reuse that key. Save-time probes validate only the supplied API key, without Code or Spend. Invalid credentials are rejected; an indeterminate response follows the shared save policy.
 
 Code discovery runs once, independently of the number of API keys. Refresh and region memory belong to each credential; edits invalidate only the affected API identity. Single-key peer grouping applies only when one API key is active.
 

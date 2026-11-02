@@ -71,17 +71,24 @@ test('MiniMax rejected or superseded profile probes cannot replace a saved crede
   assert.equal(rejected.settings().minimaxApiKey, 'saved-secret');
 });
 
-test('MiniMax profiles use the shared indeterminate verdict and retain a key while editing its metadata', async () => {
-  const f = fixture({ minimaxApiProfiles: { work: { apiKey: 'saved-secret', billingMode: 'api', apiRegion: 'cn' } } },
+test('MiniMax profile replacement requires its key and follows the shared indeterminate verdict', async () => {
+  const f = fixture({ minimaxApiProfiles: {
+    work: { apiKey: 'saved-secret', billingMode: 'api', apiRegion: 'cn' },
+    personal: { apiKey: 'personal-secret', billingMode: 'token-plan', apiRegion: 'intl' }
+  } },
     () => ({ ok: false, status: 503, json: async () => ({}) }));
-  assert.equal((await f.api.saveProfile({ name: 'work', billingMode: 'api', apiRegion: 'intl' })).ok, true);
+  const before = structuredClone(f.settings());
+  assert.equal((await f.api.saveProfile({ name: 'personal', apiKey: '', billingMode: 'api', apiRegion: 'cn' })).ok, false);
+  assert.deepEqual(f.settings(), before);
+  assert.equal(f.requests.length, 0);
+  assert.equal((await f.api.saveProfile({ name: 'work', apiKey: 'saved-secret', billingMode: 'api', apiRegion: 'intl' })).ok, true);
   assert.equal(f.settings().minimaxApiProfiles.work.apiKey, 'saved-secret');
   assert.equal(f.settings().minimaxApiProfiles.work.apiRegion, 'intl');
   await assert.rejects(f.api.saveProfile({ name: 'duplicate', apiKey: 'saved-secret', billingMode: 'api', apiRegion: 'cn' }), /already has a profile/);
   assert.equal(f.settings().minimaxApiProfiles.duplicate, undefined);
   const inherited = fixture({ minimaxApiProfiles: { work: { apiKey: 'saved-secret', billingMode: 'api', apiRegion: '' } } },
     undefined, { MINIMAX_API_REGION: 'cn' });
-  assert.equal((await inherited.api.saveProfile({ name: 'work', billingMode: 'api', apiRegion: '' })).ok, true);
+  assert.equal((await inherited.api.saveProfile({ name: 'work', apiKey: 'saved-secret', billingMode: 'api', apiRegion: '' })).ok, true);
   assert.equal(inherited.settings().minimaxApiProfiles.work.apiRegion, '');
   assert.equal(inherited.requests[0].url, 'https://api.minimaxi.com/account/query_balance');
   const { limitProviderEntry } = require('../../src/shared/limits/registry');

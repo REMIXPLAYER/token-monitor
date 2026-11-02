@@ -7609,17 +7609,6 @@ html.native-liquid-glass .view-switcher-menu-item { border-radius: 9px; }
   color: var(--red);
   background: rgba(255, 91, 91, 0.12);
 }
-.opencode-profile-item .profile-edit {
-  padding: 2px;
-  border: none;
-  background: none;
-  color: var(--muted);
-  font-size: 0.5625rem;
-  cursor: pointer;
-}
-.opencode-profile-item .profile-edit:hover {
-  color: var(--text);
-}
 .opencode-add-form {
   margin-top: 6px;
   border-radius: 6px;
