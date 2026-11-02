@@ -1169,19 +1169,22 @@
                   <button id="minimaxRefreshButton" data-i18n="settings.common.refresh">Refresh</button>
                 </div>
                 <div id="minimaxKeyList" class="managed-account-list"></div>
-                <p class="settings-note" data-i18n="settings.minimax.note">Select the billing type and paste an API key. MiniMax Code is detected independently.</p>
-                <div class="settings-row">
-                  <label for="minimaxBillingModeInput" data-i18n="settings.minimax.billingMode">Billing type</label>
-                  <select id="minimaxBillingModeInput">
-                    <option value="token-plan" data-i18n="settings.minimax.billingTokenPlan">Token Plan</option>
-                    <option value="api" data-i18n="settings.minimax.billingApi">API billing</option>
-                  </select>
+                <div class="opencode-credential-fields">
+                  <label>
+                    <span data-i18n="settings.minimax.billingMode">Billing type</span>
+                    <select id="minimaxBillingModeInput" class="credential-input">
+                      <option value="token-plan" data-i18n="settings.minimax.billingTokenPlan">Token Plan</option>
+                      <option value="api" data-i18n="settings.minimax.billingApi">API billing</option>
+                    </select>
+                  </label>
+                  <label>
+                    <span data-i18n="settings.limits.capability.apiKey">API key</span>
+                    <input id="minimaxApiKeyInput" class="credential-input" type="password" autocomplete="off" spellcheck="false" placeholder="API key" data-i18n-placeholder="settings.minimax.apiKeyPlaceholder" />
+                  </label>
+                  <div class="settings-actions">
+                    <button id="minimaxKeySubmit" data-i18n="settings.minimax.saveApiKey">Save API key</button>
+                  </div>
                 </div>
-                <input id="minimaxApiKeyInput" type="password" spellcheck="false" placeholder="API key" data-i18n-placeholder="settings.minimax.apiKeyPlaceholder" />
-                <div class="settings-actions">
-                  <button id="minimaxKeySubmit" data-i18n="settings.minimax.saveApiKey">Save API key</button>
-                </div>
-                <p class="settings-note" data-i18n="settings.minimax.spendNote">Spend is the pre-voucher cash total and may lag behind the balance.</p>
                 <div id="minimaxErrorMessage" class="settings-note error hidden" role="alert"></div>
               </div>
             </div>

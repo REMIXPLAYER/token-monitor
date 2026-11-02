@@ -24,6 +24,8 @@ function minimaxPanelHarness() {
   const element = () => {
     const node = { value: '', textContent: '', dataset: {}, attributes: {}, children: [], listeners: {},
       append(...children) { this.children.push(...children); }, replaceChildren() { this.children = []; },
+      querySelector(selector) { return this.children.find(child => child.classList.contains(selector.slice(1)))
+        || this.children.map(child => child.querySelector(selector)).find(Boolean); },
       addEventListener(type, handler) { this.listeners[type] = handler; },
       setAttribute(key, value) { this.attributes[key] = value; }, focus() {}, select() {},
       click() { return this.listeners.click?.({ currentTarget: this }); } };
@@ -42,7 +44,7 @@ function minimaxPanelHarness() {
   }
   const get = id => { assert.ok(elements.has(id), `${id} must exist in the real markup`); return elements.get(id); };
   const walk = node => [node, ...node.children.flatMap(walk)];
-  const infos = () => walk(get('minimaxKeyList')).filter(node => node.dataset.minimaxKey);
+  const rows = () => walk(get('minimaxKeyList')).filter(node => node.dataset.minimaxKey);
   const saves = [], opened = [], refreshes = [], removed = [];
   const state = { settings: { minimaxApiRegion: 'cn', minimaxBillingMode: 'token-plan' } };
   const api = { getKeys: async () => [], addKey: async () => ({ ok: true }) };
@@ -51,18 +53,23 @@ function minimaxPanelHarness() {
     state, accountShellApi, accountShellErrors: {}, accountProfileRequests: accountShellApi.createRequestGuard(),
     accountProfileSaves: accountShellApi.createBusyGuard(),
     limitProviderPresentationApi: require('../../src/electron/renderer/limits/providerPresentation'),
+    limitAccountTitle: require('../../src/electron/renderer/limits/windowsView').createLimitWindowsView({
+      settings: () => state.settings, accountIdentity: require('../../src/electron/renderer/accountIdentity')
+    }).limitAccountTitle,
+    translatedLimitProviderTag: tag => tag?.label || '',
+    externalProviderForAccount: () => providers.find(row => row.source === 'api'),
     t, isSettingsSurfaceVisible: () => true, renderSettingsSummaries() {}, refreshStats: async () => {},
     setExternalAccountExpanded: (_id, value) => { state.minimaxAccountExpanded = value; },
     refreshLimitProviderQuota: id => refreshes.push(id),
     localProviderStatuses: () => providers, limitProviderEnabled: () => enabled,
     document: { getElementById: get, createElement: element,
-      querySelectorAll: () => infos() },
+      querySelectorAll: () => rows() },
     window: { tokenMonitor: { openExternal: url => opened.push(url), minimax: {
       getKeys: () => api.getKeys(), addKey: draft => { saves.push(draft); return api.addKey(draft); },
       removeKey: async id => { removed.push(id); return { ok: true }; }
     } } }
   };
-  const names = ['setAccountShellError', 'renderAccountShellError', 'minimaxBillingUrl', 'updateMinimaxApiKeysStatus', 'minimaxKeyErrorText', 'renderMinimaxApiKeys'];
+  const names = ['setAccountShellError', 'renderAccountShellError', 'minimaxBillingUrl', 'updateMinimaxApiKeysStatus', 'apiKeyAccountStatusText', 'minimaxKeyErrorText', 'renderMinimaxApiKeys'];
   const functions = names.map(name => {
     const marker = app.indexOf(`function ${name}(`);
     const start = app.slice(marker - 6, marker) === 'async ' ? marker - 6 : marker;
@@ -70,10 +77,10 @@ function minimaxPanelHarness() {
   }).join('\n');
   const start = app.indexOf("  const minimaxToggle = document.getElementById('minimaxSettingsToggle');");
   vm.runInNewContext(`${functions}\n${app.slice(start, app.indexOf('\n  }\n', start) + 5)}`, context);
-  return { get, api, saves, opened, refreshes, removed, state, infos,
+  return { get, api, saves, opened, refreshes, removed, state, rows,
     buttons: label => walk(get('minimaxKeyList')).filter(node => node.attributes['aria-label'] === t(label)),
     render: () => context.renderMinimaxApiKeys(),
-    status: (rows, on = true) => { providers = rows; enabled = on; context.updateMinimaxApiKeysStatus(); },
+    status: (rows, on = true) => { providers = rows.map(row => ({ provider: 'minimax', ...row })); enabled = on; context.updateMinimaxApiKeysStatus(); },
     draft: values => { for (const [id, value] of Object.entries(values)) get(id).value = value; } };
 }
 
@@ -103,7 +110,7 @@ test('MiniMax key input retains a rejected draft and allows recovery', async () 
   h.draft({ minimaxApiKeyInput: 'bad-key' });
   for (const [result, message] of [
     [{ ok: false, status: 'required' }, 'settings.minimax.statusNotSet'],
-    [{ ok: false, status: 'unauthorized' }, 'settings.minimax.invalidKey'],
+    [{ ok: false, status: 'unauthorized' }, 'settings.minimax.statusInvalid'],
     [{ ok: false, error: 'disk full' }, null]
   ]) {
     h.api.addKey = async () => result;
@@ -128,16 +135,26 @@ test('MiniMax keys use independent API status and billing links, with removal on
     { id: 'environment', accountKey: 'c', removable: false, apiRegion: 'intl', billingMode: 'api' }
   ];
   await h.render();
-  assert.equal(h.get('minimaxStatus').textContent, t('settings.minimax.nKeys', { count: 3 }));
-  const info = id => h.infos().find(node => node.dataset.minimaxKey === id);
-  for (const [status, message] of [['ok', '✓'], ['unauthorized', t('settings.minimax.invalidKey')], ['unavailable', t('settings.minimax.unavailable')]]) {
+  assert.equal(h.get('minimaxStatus').textContent, t('settings.common.checking'));
+  const info = id => h.rows().find(node => node.dataset.minimaxKey === id).querySelector('.managed-account-info');
+  const labels = () => h.rows().map(row => row.querySelector('.managed-account-email').textContent);
+  const apiLabel = t('settings.minimax.billingApi');
+  assert.deepEqual(labels(), [`Account 1 · ${apiLabel}`, 'Account 2 · Token Plan', `Account 3 · ${apiLabel}`]);
+  for (const [status, message] of [['ok', t('settings.minimax.statusSet')], ['unauthorized', t('settings.minimax.statusInvalid')], ['unavailable', t('settings.common.unavailable')]]) {
     h.status([{ source: 'oauth', status: 'ok', accountKey: 'a' }, { source: 'api', accountKey: 'a', region: 'en', status }]);
     assert.equal(info('a').textContent, message);
+    assert.equal(h.get('minimaxStatus').textContent, 'Live', 'a healthy Code reading keeps the shared provider status live');
   }
   h.status([{ source: 'oauth', status: 'ok', accountKey: 'a' }]);
-  assert.equal(info('a').textContent, t('settings.minimax.checking'));
+  assert.equal(info('a').textContent, t('settings.common.checking'));
   h.status([], false);
-  assert.equal(info('a').textContent, '');
+  assert.equal(info('a').textContent, t('settings.limits.status.disabled'));
+  assert.equal(h.get('minimaxStatus').textContent, 'Disabled');
+  h.status([{ source: 'api', accountKey: 'a', region: 'cn', relatedAccountKey: 'code', status: 'ok' },
+    { source: 'api', accountKey: 'b', region: 'cn', relatedAccountKey: 'code', status: 'ok' },
+    { source: 'api', accountKey: 'c', region: 'cn', status: 'ok' },
+    { source: 'oauth', accountKey: 'code', region: 'cn', status: 'ok' }]);
+  assert.deepEqual(labels(), [`Account 1 · ${apiLabel}`, 'Account 1 · Token Plan', `Account 2 · ${apiLabel}`]);
   h.status([{ source: 'api', accountKey: 'a', region: 'en', status: 'ok' }]);
   h.buttons('settings.minimax.openBrowser').forEach(button => button.click());
   assert.deepEqual(h.opened, ['https://platform.minimax.io/user-center/payment/balance',
@@ -154,9 +171,9 @@ test('MiniMax keys use independent API status and billing links, with removal on
   assert.deepEqual(h.refreshes, ['minimax']);
   h.api.getKeys = async () => { throw new Error('IPC unavailable'); };
   await h.render();
-  assert.equal(h.get('minimaxErrorMessage').textContent, t('settings.minimax.unavailable'));
+  assert.equal(h.get('minimaxErrorMessage').textContent, t('settings.common.unavailable'));
   h.status([{ source: 'api', accountKey: 'a', status: 'ok' }]);
-  assert.equal(info('a').textContent, '✓');
+  assert.equal(info('a').textContent, t('settings.minimax.statusSet'));
 });
 
 test('MiniMax key input keeps both key hints without named-account or region controls', () => {
@@ -164,9 +181,9 @@ test('MiniMax key input keeps both key hints without named-account or region con
   for (const locale of Object.keys(i18n.MESSAGES)) {
     assert.match(i18n.translate(locale, placeholder), /sk-cp-/);
     assert.match(i18n.translate(locale, placeholder), /sk-api-/);
-    assert.match(i18n.translate(locale, 'settings.minimax.nKeys', { count: 2 }), /2/);
   }
   assert.doesNotMatch(html, /id="minimax(ProfileName|ApiRegionInput|AddToggle)"/);
+  assert.doesNotMatch(html, /data-i18n="settings.minimax.(note|spendNote|nKeys)"/);
 });
 
 async function settle() {
