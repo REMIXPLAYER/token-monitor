@@ -18184,28 +18184,26 @@ async function renderMinimaxApiKeys() {
       open.setAttribute('aria-label', t('settings.minimax.openBrowser'));
       open.addEventListener('click', () => window.tokenMonitor.openExternal(minimaxBillingUrl(key)));
       actions.append(info, open);
-      if (key.removable) {
-        const remove = document.createElement('button');
-        remove.className = 'managed-account-remove';
-        remove.textContent = '✕';
-        remove.setAttribute('aria-label', t('settings.minimax.clearApiKey'));
-        let confirming = false;
-        remove.addEventListener('click', () => {
-          if (!confirming) {
-            confirming = true;
-            remove.textContent = '✓';
-            remove.classList.add('confirming');
-            remove.setAttribute('aria-label', t('settings.profiles.deleteConfirm', { name: label.textContent }));
-            return;
-          }
-          return accountProfileSaves.run('minimax', remove, async () => {
-            const result = await window.tokenMonitor.minimax.removeKey(key.id);
-            setAccountShellError('minimax', result?.ok ? '' : minimaxKeyErrorText(result));
-            if (result?.ok) { await renderMinimaxApiKeys(); await refreshStats(); }
-          });
+      const remove = document.createElement('button');
+      remove.className = 'managed-account-remove';
+      remove.textContent = '✕';
+      remove.setAttribute('aria-label', t('settings.minimax.clearApiKey'));
+      let confirming = false;
+      remove.addEventListener('click', () => {
+        if (!confirming) {
+          confirming = true;
+          remove.textContent = '✓';
+          remove.classList.add('confirming');
+          remove.setAttribute('aria-label', t('settings.profiles.deleteConfirm', { name: label.textContent }));
+          return;
+        }
+        return accountProfileSaves.run('minimax', remove, async () => {
+          const result = await window.tokenMonitor.minimax.removeKey(key.id);
+          setAccountShellError('minimax', result?.ok ? '' : minimaxKeyErrorText(result));
+          if (result?.ok) { await renderMinimaxApiKeys(); await refreshStats(); }
         });
-        actions.append(remove);
-      }
+      });
+      actions.append(remove);
       row.append(label, actions);
       list.append(row);
     }

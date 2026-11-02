@@ -127,8 +127,8 @@ test('MiniMax key input retains a rejected draft and allows recovery', async () 
 test('MiniMax saved keys use independent API status and billing links, with removal', async () => {
   const h = minimaxPanelHarness();
   h.api.getKeys = async () => [
-    { id: 'a', accountKey: 'a', removable: true, apiRegion: 'auto', billingMode: 'api' },
-    { id: 'b', accountKey: 'b', removable: true, apiRegion: 'cn', billingMode: 'token-plan' }
+    { id: 'a', accountKey: 'a', apiRegion: 'auto', billingMode: 'api' },
+    { id: 'b', accountKey: 'b', apiRegion: 'cn', billingMode: 'token-plan' }
   ];
   await h.render();
   assert.equal(h.get('minimaxStatus').textContent, t('settings.common.checking'));
