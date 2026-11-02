@@ -17862,10 +17862,14 @@ function updateNamedApiProfilesStatus({
 function updateMinimaxApiKeysStatus() {
   const rows = localProviderStatuses('minimax');
   const enabled = limitProviderEnabled('minimax');
-  const provider = enabled ? limitProviderPresentationApi.limitProviderSettingsRecord(rows, 'minimax') : { status: 'disabled' };
+  const provider = enabled ? limitProviderPresentationApi.limitProviderSettingsRecord(rows, 'minimax') : null;
   accountShellApi.render({
     status: document.getElementById('minimaxStatus'),
-    statusText: provider ? translatedLimitProviderTag(limitProviderPresentationApi.limitProviderStatusLabel(provider)) : t('settings.common.checking')
+    statusText: !enabled
+      ? t('settings.limits.status.disabled')
+      : provider
+        ? translatedLimitProviderTag(limitProviderPresentationApi.limitProviderStatusLabel(provider))
+        : t('settings.common.checking')
   });
   for (const row of document.querySelectorAll('[data-minimax-key]')) {
     const reading = rows.find(candidate => candidate.source === 'api' && candidate.accountKey === row.dataset.minimaxKey);
