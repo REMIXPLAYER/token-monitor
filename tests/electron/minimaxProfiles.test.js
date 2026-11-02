@@ -95,7 +95,7 @@ test('MiniMax profile replacement requires its key and follows the shared indete
   assert.equal(limitProviderEntry('minimax').envProbe.probe({ MINIMAX_API_REGION: 'cn' }), 'cn');
 });
 
-test('MiniMax profile IPC persists private keys and activates the current runtime configuration', async t => {
+test('MiniMax profile saves persist private keys and notify the runtime with the committed configuration', async t => {
   const fs = require('node:fs');
   const path = require('node:path');
   const { CredentialStore, persistSettingsAndCredentials } = require('../../src/shared/credentialStore');
@@ -111,24 +111,18 @@ test('MiniMax profile IPC persists private keys and activates the current runtim
     probeProvider: (_id, options) => fetchMinimaxLimits(options, { env: {}, homeDir: directory, fetch }) });
   t.after(() => runtime.stop());
   const refreshes = [];
-  const handlers = new Map();
-  const main = fs.readFileSync(path.join(__dirname, '../../src/electron/main.js'), 'utf8');
-  require('node:vm').runInNewContext(main.slice(main.indexOf('  const minimaxProfiles = createMinimaxProfiles('),
-    main.indexOf("  ipcMain.handle('openrouter:getProfiles'")), {
-    settings, createMinimaxProfiles, AbortSignal,
+  const profiles = createMinimaxProfiles({
+    getSettings: () => settings, env: {},
     saveSettings: () => persistSettingsAndCredentials({ store, settingsPath: path.join(directory, 'settings.json'),
       settings, previousSettings: {} }),
-    electronProviderDeps: deps => ({ ...deps, fetch }), electronLimitsConfig: () => settings,
-    deviceRuntimeHandle: { reconfigureLimits: config => runtime.reconfigure(config) },
-    credentialCommands: { noteSettingsPatch() {} }, pushSettingsToRenderer() {},
-    queueLimitInvalidation: (scope, reason, flags) => {
-      const refresh = runLimitInvalidation({ clearLimits: runtime.clear, refreshLimits: runtime.refresh }, scope, reason, flags);
-      refreshes.push(refresh);
-      return refresh;
-    },
-    ipcMain: { handle: (name, handler) => handlers.set(name, handler) }
+    probeDeps: () => ({ fetch }),
+    changed: (accountKey, refresh, reason) => {
+      runtime.reconfigure(settings);
+      refreshes.push(runLimitInvalidation({ clearLimits: runtime.clear, refreshLimits: runtime.refresh },
+        { provider: 'minimax', source: 'api', accountKey }, reason, { clear: true, refresh }));
+    }
   });
-  assert.equal((await handlers.get('minimax:saveProfile')({}, { name: 'work', apiKey: 'work-secret', billingMode: 'api', apiRegion: 'cn' })).ok, true);
+  assert.equal((await profiles.saveProfile({ name: 'work', apiKey: 'work-secret', billingMode: 'api', apiRegion: 'cn' })).ok, true);
   await Promise.all(refreshes);
   assert.equal(runtime.getSnapshot().providers.find(row => row.accountName === 'work')?.status, 'ok');
   assert.equal(fs.readFileSync(path.join(directory, 'settings.json'), 'utf8').includes('-secret'), false);

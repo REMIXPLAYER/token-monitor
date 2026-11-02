@@ -9,22 +9,9 @@ const vm = require('node:vm');
 const accountShellApi = require('../../src/electron/renderer/limits/accountShell');
 const app = fs.readFileSync(path.join(__dirname, '../../src/electron/renderer/app.js'), 'utf8');
 
-test('MiniMax billing links follow each profile region and billing type', () => {
-  const source = app.slice(app.indexOf('function minimaxBillingUrl('), app.indexOf('function updateOpenRouterProfilesStatus('));
-  const context = {
-    state: { settings: { minimaxApiRegion: 'cn', minimaxEnvRegion: 'intl', minimaxBillingMode: 'token-plan' } },
-    localProviderStatuses: () => [
-      { source: 'api', accountName: 'work', region: 'en' },
-      { source: 'api', accountName: 'personal', region: 'cn' }
-    ]
-  };
-  vm.runInNewContext(`${source}\nthis.url = minimaxBillingUrl;`, context);
-  assert.equal(context.url('work', { apiRegion: 'auto', billingMode: 'api' }), 'https://platform.minimax.io/user-center/payment/balance');
-  assert.equal(context.url('personal', { apiRegion: 'auto', billingMode: 'token-plan' }), 'https://platform.minimaxi.com/user-center/payment/token-plan');
-  assert.equal(context.url('work', { apiRegion: 'cn', billingMode: 'api' }), 'https://platform.minimaxi.com/user-center/payment/balance');
-  assert.equal(context.url('environment', {}), 'https://platform.minimaxi.com/user-center/payment/token-plan');
-  assert.equal(context.url('work', { apiRegion: '', billingMode: 'api' }), 'https://platform.minimax.io/user-center/payment/balance');
-});
+const html = fs.readFileSync(path.join(__dirname, '../../src/electron/renderer/index.html'), 'utf8');
+const i18n = require('../../src/electron/renderer/i18n');
+const t = (key, values) => i18n.translate('en', key, values);
 
 function deferred() {
   let resolve;
@@ -33,35 +20,161 @@ function deferred() {
   return { promise, resolve, reject };
 }
 
-test('MiniMax save completion preserves a newer account draft', async () => {
+function minimaxPanelHarness() {
+  const element = () => {
+    const node = { value: '', textContent: '', dataset: {}, attributes: {}, children: [], listeners: {},
+      append(...children) { this.children.push(...children); }, replaceChildren() { this.children = []; },
+      addEventListener(type, handler) { this.listeners[type] = handler; },
+      setAttribute(key, value) { this.attributes[key] = value; }, focus() {}, select() {},
+      click() { return this.listeners.click?.({ currentTarget: this }); } };
+    let classes = new Set();
+    Object.defineProperty(node, 'className', { get: () => [...classes].join(' '), set: value => { classes = new Set(value.split(/\s+/)); } });
+    node.classList = { contains: name => classes.has(name), add: name => classes.add(name), remove: name => classes.delete(name),
+      toggle: (name, on) => on ? classes.add(name) : classes.delete(name) };
+    return node;
+  };
   const elements = new Map();
-  const input = id => {
-    if (!elements.has(id)) elements.set(id, { value: '', addEventListener(_type, handler) { this.click = handler; } });
-    return elements.get(id);
-  };
-  const result = deferred();
+  for (const match of html.matchAll(/<[^>]+\bid="(minimax[^" ]+)"[^>]*>/g)) {
+    const node = element();
+    node.className = match[0].match(/class="([^"]*)"/)?.[1] || '';
+    if (match[0].startsWith('<select')) node.value = html.slice(match.index).match(/<option value="([^"]*)"/)[1];
+    elements.set(match[1], node);
+  }
+  const get = id => { assert.ok(elements.has(id), `${id} must exist in the real markup`); return elements.get(id); };
+  const walk = node => [node, ...node.children.flatMap(walk)];
+  const infos = () => walk(get('minimaxProfileList')).filter(node => node.dataset.managedProfileProvider === 'minimax');
+  const saves = [], opened = [], refreshes = [];
+  const state = { settings: { minimaxApiRegion: 'cn', minimaxEnvRegion: 'intl', minimaxBillingMode: 'token-plan' } };
+  const api = { getProfiles: async () => ({ profiles: {}, hasEnvVar: false }), saveProfile: async () => ({ ok: true }) };
+  let providers = [], enabled = true;
   const context = {
-    document: { getElementById: input },
-    window: { tokenMonitor: { minimax: { saveProfile: () => result.promise } } },
+    state, accountShellApi, accountShellErrors: {}, accountProfileRequests: accountShellApi.createRequestGuard(),
     accountProfileSaves: accountShellApi.createBusyGuard(),
-    setAccountShellError() {}, renderMinimaxProfiles() {}, refreshStats: async () => {}
+    limitProviderPresentationApi: require('../../src/electron/renderer/limits/providerPresentation'),
+    t, isSettingsSurfaceVisible: () => true, renderSettingsSummaries() {}, refreshStats: async () => {},
+    setExternalAccountExpanded: (_id, value) => { state.minimaxAccountExpanded = value; },
+    refreshLimitProviderQuota: id => refreshes.push(id),
+    localProviderStatuses: () => providers, limitProviderEnabled: () => enabled,
+    document: { getElementById: get, createElement: element,
+      querySelectorAll: () => infos().filter(node => Object.hasOwn(node.dataset, 'managedProfileName')),
+      querySelector: () => infos().find(node => node.dataset.managedProfileEnvironment) },
+    window: { tokenMonitor: { openExternal: url => opened.push(url), minimax: {
+      ...api, getProfiles: () => api.getProfiles(), saveProfile: draft => { saves.push(draft); return api.saveProfile(draft); }
+    } } }
   };
+  const names = ['setAccountShellError', 'renderAccountShellError', 'minimaxBillingUrl', 'updateNamedApiProfilesStatus',
+    'updateMinimaxProfilesStatus', 'minimaxProfileErrorText', 'appendNamedApiProfileRow', 'renderNamedApiProfiles', 'renderMinimaxProfiles'];
+  const functions = names.map(name => {
+    const start = app.indexOf(`function ${name}(`);
+    return app.slice(start, app.indexOf('\n}\n', start) + 2);
+  }).join('\n');
   const start = app.indexOf("  const minimaxToggle = document.getElementById('minimaxSettingsToggle');");
-  vm.runInNewContext(app.slice(start, app.indexOf('  const openrouterToggle', start)), context);
-  input('minimaxProfileName').value = 'work';
-  input('minimaxApiKeyInput').value = 'work-secret';
-  input('minimaxBillingModeInput').value = 'api';
-  input('minimaxApiRegionInput').value = 'cn';
-  const saving = input('minimaxProfileSubmit').click();
-  input('minimaxProfileName').value = 'personal';
-  input('minimaxApiKeyInput').value = 'personal-secret';
-  result.resolve({ ok: true });
+  vm.runInNewContext(`${functions}\n${app.slice(start, app.indexOf('\n  }\n', start) + 5)}`, context);
+  return { get, api, saves, opened, refreshes, state, infos,
+    links: () => walk(get('minimaxProfileList')).filter(node => node.className === 'profile-open'),
+    render: async () => { context.renderMinimaxProfiles(); await settle(); },
+    status: (rows, on = true) => { providers = rows; enabled = on; context.updateMinimaxProfilesStatus(); },
+    draft: values => { for (const [id, value] of Object.entries(values)) get(id).value = value; } };
+}
+
+test('MiniMax current form submits billing and region atomically, blocks duplicate saves and preserves newer drafts', async () => {
+  const h = minimaxPanelHarness();
+  h.draft({ minimaxProfileName: 'work', minimaxApiKeyInput: 'work-secret', minimaxBillingModeInput: 'api', minimaxApiRegionInput: 'cn' });
+  const pending = deferred();
+  h.api.saveProfile = () => pending.promise;
+  const saving = h.get('minimaxProfileSubmit').click();
+  assert.equal(h.get('minimaxProfileSubmit').disabled, true);
+  await h.get('minimaxProfileSubmit').click();
+  assert.equal(h.saves.length, 1);
+  assert.deepEqual({ ...h.saves[0] }, { name: 'work', apiKey: 'work-secret', billingMode: 'api', apiRegion: 'cn' });
+  h.draft({ minimaxProfileName: 'personal', minimaxApiKeyInput: 'personal-secret', minimaxApiRegionInput: 'intl' });
+  await h.render();
+  pending.resolve({ ok: true });
   await saving;
-  assert.equal(input('minimaxProfileName').value, 'personal');
-  assert.equal(input('minimaxApiKeyInput').value, 'personal-secret');
-  await input('minimaxProfileSubmit').click();
-  assert.equal(input('minimaxProfileName').value, '');
-  assert.equal(input('minimaxApiKeyInput').value, '');
+  assert.equal(h.get('minimaxProfileSubmit').disabled, false);
+  assert.equal(h.get('minimaxProfileName').value, 'personal');
+  assert.equal(h.get('minimaxApiKeyInput').value, 'personal-secret');
+  assert.equal(h.get('minimaxApiRegionInput').value, 'intl');
+  await h.get('minimaxProfileSubmit').click();
+  assert.deepEqual({ ...h.saves[1] }, { name: 'personal', apiKey: 'personal-secret', billingMode: 'api', apiRegion: 'intl' });
+  assert.equal(h.get('minimaxProfileName').value, '');
+  assert.equal(h.get('minimaxApiKeyInput').value, '');
+});
+
+test('MiniMax current form retains a rejected draft and allows recovery', async () => {
+  const h = minimaxPanelHarness();
+  h.draft({ minimaxProfileName: 'work', minimaxApiKeyInput: 'bad-key', minimaxApiRegionInput: '' });
+  for (const [result, message] of [
+    [{ ok: false, status: 'required' }, 'settings.minimax.statusNotSet'],
+    [{ ok: false, status: 'unauthorized' }, 'settings.minimax.invalidKey'],
+    [{ ok: false, error: 'disk full' }, null]
+  ]) {
+    h.api.saveProfile = async () => result;
+    await h.get('minimaxProfileSubmit').click();
+    assert.equal(h.get('minimaxErrorMessage').textContent, message ? t(message) : 'disk full');
+    assert.equal(h.get('minimaxProfileSubmit').disabled, false);
+    assert.equal(h.get('minimaxApiKeyInput').value, 'bad-key');
+    assert.equal(h.get('minimaxApiRegionInput').value, '');
+    await h.render();
+    assert.equal(h.get('minimaxErrorMessage').classList.contains('hidden'), false);
+  }
+  h.api.saveProfile = async () => ({ ok: true });
+  await h.get('minimaxProfileSubmit').click();
+  assert.equal(h.get('minimaxErrorMessage').textContent, '');
+  assert.equal(h.get('minimaxApiKeyInput').value, '');
+});
+
+test('MiniMax profile status and billing links use API rows independently of Code and the account draft', async () => {
+  const h = minimaxPanelHarness();
+  const profiles = { work: { enabled: true, apiRegion: 'auto', billingMode: 'api' },
+    personal: { enabled: false, apiRegion: 'cn', billingMode: 'token-plan' } };
+  h.api.getProfiles = async () => ({ profiles, hasEnvVar: true });
+  await h.render();
+  const info = name => h.infos().find(node => node.dataset.managedProfileName === name);
+  for (const [status, message] of [['ok', '✓'], ['unauthorized', t('settings.minimax.invalidKey')], ['unavailable', t('settings.minimax.unavailable')]]) {
+    h.status([{ source: 'oauth', status: 'ok', accountName: 'work' }, { source: 'api', accountName: 'work', region: 'en', status }]);
+    assert.equal(info('work').textContent, message);
+    assert.equal(info('personal').textContent, t('settings.profiles.disabled'));
+  }
+  h.status([{ source: 'oauth', status: 'ok', accountName: 'work' }]);
+  assert.equal(info('work').textContent, t('settings.minimax.checking'));
+  assert.equal(h.get('minimaxStatus').textContent, t('settings.minimax.connected', { linked: 0, total: 3 }));
+  h.status([], false);
+  assert.equal(info('work').textContent, '');
+  assert.equal(h.get('minimaxStatus').textContent, t('settings.minimax.nAccounts', { count: 3 }));
+  const buttons = h.links();
+  h.status([{ source: 'api', accountName: 'work', region: 'en', status: 'ok' }]);
+  assert.equal(h.get('minimaxStatus').textContent, t('settings.minimax.connected', { linked: 1, total: 3 }));
+  buttons[0].click(); buttons[1].click(); buttons[2].click();
+  assert.deepEqual(h.opened, ['https://platform.minimax.io/user-center/payment/balance',
+    'https://platform.minimaxi.com/user-center/payment/token-plan', 'https://platform.minimaxi.com/user-center/payment/token-plan']);
+  h.get('minimaxAddToggle').click();
+  for (const [region, expected] of [['intl', 'minimax.io'], ['cn', 'minimaxi.com'], ['', 'minimax.io'], ['auto', 'minimax.io']]) {
+    h.draft({ minimaxProfileName: 'work', minimaxApiRegionInput: region, minimaxBillingModeInput: 'api' });
+    h.get('minimaxOpenBrowser').click();
+    assert.equal(h.opened.at(-1), `https://platform.${expected}/user-center/payment/balance`);
+  }
+  h.get('minimaxRefreshButton').click();
+  assert.deepEqual(h.refreshes, ['minimax']);
+  h.api.getProfiles = async () => ({ profiles: { personal: profiles.personal }, hasEnvVar: false });
+  await h.render();
+  h.get('minimaxAddToggle').click();
+  h.get('minimaxProfileName').value = '';
+  h.get('minimaxOpenBrowser').click();
+  assert.equal(h.opened.at(-1), 'https://platform.minimaxi.com/user-center/payment/token-plan');
+  h.api.getProfiles = async () => ({ profiles: {}, hasEnvVar: false });
+  await h.render();
+  assert.equal(h.get('minimaxStatus').textContent, t('settings.minimax.statusNotSet'));
+});
+
+test('MiniMax key hints cover both key types and Spend scope remains outside the add form', () => {
+  const placeholder = html.match(/id="minimaxApiKeyInput"[^>]*data-i18n-placeholder="([^"]+)"/)[1];
+  for (const locale of Object.keys(i18n.MESSAGES)) {
+    assert.match(i18n.translate(locale, placeholder), /sk-cp-/);
+    assert.match(i18n.translate(locale, placeholder), /sk-api-/);
+    assert.notEqual(i18n.translate(locale, 'settings.minimax.spendNote'), 'settings.minimax.spendNote');
+  }
+  assert.ok(html.indexOf('data-i18n="settings.minimax.spendNote"') < html.indexOf('id="minimaxAddForm"'));
 });
 
 async function settle() {
