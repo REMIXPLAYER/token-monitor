@@ -17884,8 +17884,9 @@ function minimaxKeyErrorText(result) {
 }
 
 function minimaxBillingUrl(key) {
-  const row = key.accountKey ? localProviderStatuses('minimax').find(row => row.source === 'api' && row.accountKey === key.accountKey)
-    : externalProviderForAccount('minimax');
+  const row = key.accountKey
+    ? localProviderStatuses('minimax').find(row => row.source === 'api' && row.accountKey === key.accountKey)
+    : null;
   const region = key.apiRegion || state.settings?.minimaxApiRegion || 'auto';
   const intl = region === 'intl' || (region === 'auto' && row?.region === 'en');
   const origin = intl ? 'https://platform.minimax.io' : 'https://platform.minimaxi.com';

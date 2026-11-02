@@ -54,7 +54,6 @@ function minimaxPanelHarness() {
     accountProfileSaves: accountShellApi.createBusyGuard(),
     limitProviderPresentationApi: require('../../src/electron/renderer/limits/providerPresentation'),
     translatedLimitProviderTag: tag => tag?.label || '',
-    externalProviderForAccount: () => providers.find(row => row.source === 'api'),
     t, isSettingsSurfaceVisible: () => true, renderSettingsSummaries() {}, refreshStats: async () => {},
     setExternalAccountExpanded: (_id, value) => { state.minimaxAccountExpanded = value; },
     refreshLimitProviderQuota: id => refreshes.push(id),
