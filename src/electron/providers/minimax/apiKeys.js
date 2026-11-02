@@ -37,12 +37,14 @@ function createMinimaxApiKeys({ getSettings, saveSettings, probeDeps, changed, e
   });
   return {
     getKeys() {
-      const entries = Object.entries(profiles()).map(([id, profile]) => ({ id, ...profile, removable: true }));
-      const ambient = limits.configuredMinimaxAccounts(getSettings(), { env }).find(account => account.name === 'environment');
-      if (ambient) entries.push({ ...ambient, id: 'environment', removable: false });
-      return entries.map(({ id, apiKey, billingMode, apiRegion, enabled = true, removable }) =>
-        ({ id, accountKey: hashKey('minimax', apiKey), billingMode,
-          apiRegion: limits.minimaxRegion({ minimaxApiRegion: apiRegion }, env), enabled, removable }));
+      return Object.entries(profiles()).map(([id, profile]) => ({
+        id,
+        accountKey: hashKey('minimax', profile.apiKey),
+        billingMode: profile.billingMode,
+        apiRegion: limits.minimaxRegion({ minimaxApiRegion: profile.apiRegion }, env),
+        enabled: profile.enabled !== false,
+        removable: true
+      }));
     },
     async addKey(input = {}) {
       const key = limits.minimaxToken({}, input.apiKey);

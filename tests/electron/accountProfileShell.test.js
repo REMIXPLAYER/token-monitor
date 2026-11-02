@@ -124,12 +124,11 @@ test('MiniMax key input retains a rejected draft and allows recovery', async () 
   assert.equal(h.get('minimaxApiKeyInput').value, '');
 });
 
-test('MiniMax keys use independent API status and billing links, with removal only for saved keys', async () => {
+test('MiniMax saved keys use independent API status and billing links, with removal', async () => {
   const h = minimaxPanelHarness();
   h.api.getKeys = async () => [
     { id: 'a', accountKey: 'a', removable: true, apiRegion: 'auto', billingMode: 'api' },
-    { id: 'b', accountKey: 'b', removable: true, apiRegion: 'cn', billingMode: 'token-plan' },
-    { id: 'environment', accountKey: 'c', removable: false, apiRegion: 'intl', billingMode: 'api' }
+    { id: 'b', accountKey: 'b', removable: true, apiRegion: 'cn', billingMode: 'token-plan' }
   ];
   await h.render();
   assert.equal(h.get('minimaxStatus').textContent, t('settings.common.checking'));
@@ -137,9 +136,8 @@ test('MiniMax keys use independent API status and billing links, with removal on
   const labels = () => h.rows().map(row => row.querySelector('.managed-account-email').textContent);
   const apiLabel = t('settings.minimax.billingApi');
   const tokenLabel = t('settings.minimax.billingTokenPlan');
-  const envLabel = t('settings.minimax.environment');
   const accountLabel = number => t('settings.minimax.accountFallback', { number });
-  assert.deepEqual(labels(), [`${accountLabel(1)} · ${apiLabel}`, `${accountLabel(2)} · ${tokenLabel}`, `${envLabel} · ${apiLabel}`]);
+  assert.deepEqual(labels(), [`${accountLabel(1)} · ${apiLabel}`, `${accountLabel(2)} · ${tokenLabel}`]);
   for (const [status, message] of [['ok', t('settings.minimax.statusSet')], ['unauthorized', t('settings.minimax.statusInvalid')], ['unavailable', t('settings.common.unavailable')]]) {
     h.status([{ source: 'oauth', status: 'ok', accountKey: 'a' }, { source: 'api', accountKey: 'a', region: 'en', status }]);
     assert.equal(info('a').textContent, message);
@@ -152,14 +150,12 @@ test('MiniMax keys use independent API status and billing links, with removal on
   assert.equal(h.get('minimaxStatus').textContent, t('settings.limits.status.disabled'));
   h.status([{ source: 'api', accountKey: 'a', region: 'cn', relatedAccountKey: 'code', status: 'ok' },
     { source: 'api', accountKey: 'b', region: 'cn', relatedAccountKey: 'code', status: 'ok' },
-    { source: 'api', accountKey: 'c', region: 'cn', status: 'ok' },
     { source: 'oauth', accountKey: 'code', region: 'cn', status: 'ok' }]);
-  assert.deepEqual(labels(), [`${accountLabel(1)} · ${apiLabel}`, `${accountLabel(2)} · ${tokenLabel}`, `${envLabel} · ${apiLabel}`]);
-  assert.equal(info('c').textContent, t('settings.minimax.statusEnv'));
+  assert.deepEqual(labels(), [`${accountLabel(1)} · ${apiLabel}`, `${accountLabel(2)} · ${tokenLabel}`]);
   h.status([{ source: 'api', accountKey: 'a', region: 'en', status: 'ok' }]);
   h.buttons('settings.minimax.openBrowser').forEach(button => button.click());
   assert.deepEqual(h.opened, ['https://platform.minimax.io/user-center/payment/balance',
-    'https://platform.minimaxi.com/user-center/payment/token-plan', 'https://platform.minimax.io/user-center/payment/balance']);
+    'https://platform.minimaxi.com/user-center/payment/token-plan']);
   const removes = h.buttons('settings.minimax.clearApiKey');
   assert.equal(removes.length, 2);
   await removes[0].click();

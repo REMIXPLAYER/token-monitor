@@ -17873,7 +17873,7 @@ function updateMinimaxApiKeysStatus() {
   });
   for (const row of document.querySelectorAll('[data-minimax-key]')) {
     const reading = rows.find(candidate => candidate.source === 'api' && candidate.accountKey === row.dataset.minimaxKey);
-    row.querySelector('.managed-account-info').textContent = apiKeyAccountStatusText('minimax', reading, true, row.dataset.credentialSource,
+    row.querySelector('.managed-account-info').textContent = apiKeyAccountStatusText('minimax', reading, true, 'settings',
       enabled && row.dataset.credentialEnabled !== 'false');
   }
 }
@@ -18169,13 +18169,10 @@ async function renderMinimaxApiKeys() {
       const row = document.createElement('div');
       row.className = 'managed-account-row';
       row.dataset.minimaxKey = key.accountKey;
-      row.dataset.credentialSource = key.removable ? 'settings' : 'env';
       row.dataset.credentialEnabled = String(key.enabled !== false);
       const label = document.createElement('span');
       label.className = 'managed-account-main managed-account-email';
-      const name = key.removable
-        ? t('settings.minimax.accountFallback', { number: ++savedIndex })
-        : t('settings.minimax.environment');
+      const name = t('settings.minimax.accountFallback', { number: ++savedIndex });
       label.textContent = `${name} · ${t(`settings.minimax.${key.billingMode === 'api' ? 'billingApi' : 'billingTokenPlan'}`)}`;
       const actions = document.createElement('span');
       actions.className = 'managed-account-right';

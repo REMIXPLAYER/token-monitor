@@ -7,7 +7,7 @@ read_when:
 
 ## Sources and resource pools
 
-MiniMax Code OAuth and API keys are independent readings. Each key's billing type selects the Token Plan reader (`token-plan`, the default) or API billing (`api`); `minimaxBillingMode` remains the legacy/environment setting. Code uses the current local login regardless of those choices. Key changes never select or sign out Code. Key prefixes do not override the selected billing type, and Token Plan and API billing never fall back to each other. `MINIMAX_CODING_API_KEY` remains the environment credential.
+MiniMax Code OAuth and API keys are independent readings. Each key's billing type selects the Token Plan reader (`token-plan`, the default) or API billing (`api`); `minimaxBillingMode` remains the legacy/environment setting. Code uses the current local login regardless of those choices. Key changes never select or sign out Code. Key prefixes do not override the selected billing type, and Token Plan and API billing never fall back to each other. `MINIMAX_CODING_API_KEY` remains the environment credential for headless/agent runs; it is not shown in settings.
 
 | Lane | Credential | Readings |
 | --- | --- | --- |
@@ -23,9 +23,9 @@ Code points use `CREDITS`, never CNY/USD. Membership's `op_credit_summary.total_
 
 ## API keys
 
-Add each API key with its billing type; no user-defined account name is needed. New keys use Auto region discovery. Readding the same key updates its entry instead of collecting it twice. Removing a saved key never signs out Code. Environment credentials are read-only in settings. Different credentials may observe the same wallet; never sum their balances or allowances.
+Add each API key with its billing type; no user-defined account name is needed. New keys use Auto region discovery. Readding the same key updates its entry instead of collecting it twice. Removing a saved key never signs out Code. Environment credentials remain supported for headless/agent runs and are not shown in settings. Different credentials may observe the same wallet; never sum their balances or allowances.
 
-The settings list labels each saved key `Account N` in saved order and the environment credential `Environment`. These are display labels; limits surfaces still group readings by confirmed GroupId.
+The settings list labels each saved key `Account N` in saved order. These are display labels; limits surfaces still group readings by confirmed GroupId.
 
 Existing `minimaxApiKey`, billing and region settings remain readable without a startup migration. An explicit key change imports the legacy key into the shared credential store, preserving its billing type and region, including an unset region that follows the environment. Previously saved key entries and disabled flags remain readable; explicitly readding a disabled key enables it. Raw keys never return to the renderer.
 

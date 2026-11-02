@@ -38,7 +38,7 @@ test('MiniMax key additions preserve legacy credentials and deduplicate without 
   assert.ok(f.changes.some(change => change.key === hashKey('minimax', 'env-secret') && change.refresh));
   assert.equal(JSON.stringify(f.api.getKeys()).includes('-secret'), false);
   await f.api.addKey({ apiKey: 'work-secret', billingMode: 'api' });
-  assert.equal(f.api.getKeys().length, 3, 'duplicate key is not a second credential');
+  assert.equal(f.api.getKeys().length, 2, 'duplicate key is not a second credential');
   f.patch({ limitsEnabled: false, limitProviders: '' });
   const id = f.api.getKeys().find(key => key.accountKey === hashKey('minimax', 'work-secret')).id;
   assert.equal(f.api.removeKey(id).ok, true);
@@ -47,7 +47,7 @@ test('MiniMax key additions preserve legacy credentials and deduplicate without 
   await f.api.addKey({ apiKey: 'env-secret', billingMode: 'api' });
   assert.equal(f.api.getKeys().filter(key => key.accountKey === hashKey('minimax', 'env-secret')).length, 1);
   f.api.removeKey(f.api.getKeys().find(key => key.accountKey === hashKey('minimax', 'env-secret')).id);
-  assert.equal(f.api.getKeys().find(key => key.id === 'environment').removable, false);
+  assert.equal(f.api.getKeys().some(key => key.id === 'environment'), false);
   assert.deepEqual(f.changes.at(-1), { key: hashKey('minimax', 'env-secret'), refresh: true });
 });
 
