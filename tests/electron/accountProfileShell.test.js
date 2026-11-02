@@ -12,7 +12,7 @@ const app = fs.readFileSync(path.join(__dirname, '../../src/electron/renderer/ap
 test('MiniMax billing links follow each profile region and billing type', () => {
   const source = app.slice(app.indexOf('function minimaxBillingUrl('), app.indexOf('function updateOpenRouterProfilesStatus('));
   const context = {
-    state: { settings: { minimaxApiRegion: 'cn', minimaxBillingMode: 'token-plan' } },
+    state: { settings: { minimaxApiRegion: 'cn', minimaxEnvRegion: 'intl', minimaxBillingMode: 'token-plan' } },
     localProviderStatuses: () => [
       { source: 'api', accountName: 'work', region: 'en' },
       { source: 'api', accountName: 'personal', region: 'cn' }
@@ -23,6 +23,7 @@ test('MiniMax billing links follow each profile region and billing type', () => 
   assert.equal(context.url('personal', { apiRegion: 'auto', billingMode: 'token-plan' }), 'https://platform.minimaxi.com/user-center/payment/token-plan');
   assert.equal(context.url('work', { apiRegion: 'cn', billingMode: 'api' }), 'https://platform.minimaxi.com/user-center/payment/balance');
   assert.equal(context.url('environment', {}), 'https://platform.minimaxi.com/user-center/payment/token-plan');
+  assert.equal(context.url('work', { apiRegion: '', billingMode: 'api' }), 'https://platform.minimax.io/user-center/payment/balance');
 });
 
 function deferred() {
@@ -31,6 +32,37 @@ function deferred() {
   const promise = new Promise((yes, no) => { resolve = yes; reject = no; });
   return { promise, resolve, reject };
 }
+
+test('MiniMax save completion preserves a newer account draft', async () => {
+  const elements = new Map();
+  const input = id => {
+    if (!elements.has(id)) elements.set(id, { value: '', addEventListener(_type, handler) { this.click = handler; } });
+    return elements.get(id);
+  };
+  const result = deferred();
+  const context = {
+    document: { getElementById: input },
+    window: { tokenMonitor: { minimax: { saveProfile: () => result.promise } } },
+    accountProfileSaves: accountShellApi.createBusyGuard(),
+    setAccountShellError() {}, renderMinimaxProfiles() {}, refreshStats: async () => {}
+  };
+  const start = app.indexOf("  const minimaxToggle = document.getElementById('minimaxSettingsToggle');");
+  vm.runInNewContext(app.slice(start, app.indexOf('  const openrouterToggle', start)), context);
+  input('minimaxProfileName').value = 'work';
+  input('minimaxApiKeyInput').value = 'work-secret';
+  input('minimaxBillingModeInput').value = 'api';
+  input('minimaxApiRegionInput').value = 'cn';
+  const saving = input('minimaxProfileSubmit').click();
+  input('minimaxProfileName').value = 'personal';
+  input('minimaxApiKeyInput').value = 'personal-secret';
+  result.resolve({ ok: true });
+  await saving;
+  assert.equal(input('minimaxProfileName').value, 'personal');
+  assert.equal(input('minimaxApiKeyInput').value, 'personal-secret');
+  await input('minimaxProfileSubmit').click();
+  assert.equal(input('minimaxProfileName').value, '');
+  assert.equal(input('minimaxApiKeyInput').value, '');
+});
 
 async function settle() {
   await new Promise((resolve) => setImmediate(resolve));

@@ -40,6 +40,7 @@ module.exports = {
       project: (value, limits) => limits.normalizeMinimaxBillingMode(value)
     }
   ],
+  envProbe: { key: 'minimaxEnvRegion', fn: (env, limits) => limits.minimaxRegion({}, env) },
   status: {
     credential: 'minimaxApiKey',
     configuredKey: 'minimaxApiKeyConfigured',

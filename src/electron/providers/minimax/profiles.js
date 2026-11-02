@@ -12,8 +12,6 @@ function createMinimaxProfiles({ getSettings, saveSettings, probeDeps, changed, 
     const previousAccounts = new Map(limits.configuredMinimaxAccounts(settings, { env }).map(account => [account.apiKey, account.name]));
     settings.minimaxApiProfiles = next;
     settings.minimaxApiKey = '';
-    settings.limitProviders = providerSelectionIncluding(settings.limitProviders, 'minimax');
-    settings.limitsEnabled = true;
     saveSettings({ throwOnError: true });
     if (before && (!after || before.apiKey !== after.apiKey || after.enabled === false)) {
       changed(hashKey('minimax', before.apiKey), false, reason);
@@ -33,8 +31,11 @@ function createMinimaxProfiles({ getSettings, saveSettings, probeDeps, changed, 
       }
       const before = next[values.profileName];
       const after = { apiKey: candidate.minimaxApiKey, enabled: before?.enabled !== false,
-        billingMode: candidate.minimaxBillingMode, apiRegion: candidate.minimaxApiRegion };
+        billingMode: candidate.minimaxBillingMode, apiRegion: values.profileRegion };
       next[values.profileName] = after;
+      const settings = getSettings();
+      settings.limitProviders = providerSelectionIncluding(settings.limitProviders, 'minimax');
+      settings.limitsEnabled = true;
       commit(next, before, after, 'profile-save');
     }
   });
@@ -55,11 +56,13 @@ function createMinimaxProfiles({ getSettings, saveSettings, probeDeps, changed, 
     async saveProfile(input = {}) {
       const name = limits.minimaxProfileName(input.name);
       if (!name) return { ok: false, errorCode: 'invalidName' };
+      const previous = profiles()[name];
+      const profileRegion = limits.normalizeMinimaxRegionSetting(input.apiRegion ?? previous?.apiRegion ?? 'auto');
       const result = await commands.saveCredential('minimax', {
-        profileName: name,
-        minimaxApiKey: input.apiKey || profiles()[name]?.apiKey || '',
+        profileName: name, profileRegion,
+        minimaxApiKey: input.apiKey || previous?.apiKey || '',
         minimaxBillingMode: input.billingMode,
-        minimaxApiRegion: input.apiRegion || 'auto'
+        minimaxApiRegion: limits.minimaxRegion({ minimaxApiRegion: profileRegion }, env)
       });
       return { ok: result.saved, status: result.status, errorCode: result.errorCode || result.verdict };
     },

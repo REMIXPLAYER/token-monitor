@@ -17881,7 +17881,8 @@ function minimaxProfileErrorText(result) {
 
 function minimaxBillingUrl(name, profile) {
   const row = localProviderStatuses('minimax').find(row => row.source === 'api' && row.accountName === name);
-  const region = profile.apiRegion || state.settings?.minimaxApiRegion || 'auto';
+  const region = profile.apiRegion || (Object.hasOwn(profile, 'apiRegion')
+    ? state.settings?.minimaxEnvRegion : state.settings?.minimaxApiRegion) || 'auto';
   const intl = region === 'intl' || (region === 'auto' && row?.region === 'en');
   const origin = intl ? 'https://platform.minimax.io' : 'https://platform.minimaxi.com';
   const path = (profile.billingMode || state.settings?.minimaxBillingMode) === 'api' ? 'balance' : 'token-plan';
@@ -18183,7 +18184,7 @@ function renderMinimaxProfiles() {
       document.getElementById('minimaxProfileName').value = name;
       document.getElementById('minimaxApiKeyInput').value = '';
       document.getElementById('minimaxBillingModeInput').value = profile.billingMode;
-      document.getElementById('minimaxApiRegionInput').value = profile.apiRegion || 'auto';
+      document.getElementById('minimaxApiRegionInput').value = profile.apiRegion;
       document.getElementById('minimaxAddDetails').classList.remove('hidden');
       document.getElementById('minimaxAddToggle').setAttribute('aria-expanded', 'true');
       document.getElementById('minimaxAddForm').classList.add('expanded');
@@ -18191,7 +18192,7 @@ function renderMinimaxProfiles() {
     },
     detailForProfile: (profile) => [
       t(`settings.minimax.${profile.billingMode === 'api' ? 'billingApi' : 'billingTokenPlan'}`),
-      t(`settings.minimax.${profile.apiRegion === 'cn' ? 'regionCn' : profile.apiRegion === 'intl' ? 'regionIntl' : 'regionAuto'}`)
+      t(`settings.minimax.${profile.apiRegion === 'cn' ? 'regionCn' : profile.apiRegion === 'intl' ? 'regionIntl' : profile.apiRegion === '' ? 'regionInherited' : 'regionAuto'}`)
     ].join(' · ')
   });
 }
@@ -18991,13 +18992,18 @@ function setupCursorAccountUI() {
     const submit = document.getElementById('minimaxProfileSubmit');
     submit.addEventListener('click', () => accountProfileSaves.run('minimax', submit, async () => {
       setAccountShellError('minimax', '');
-      const name = document.getElementById('minimaxProfileName');
-      const key = document.getElementById('minimaxApiKeyInput');
-      const result = await window.tokenMonitor.minimax.saveProfile({ name: name.value, apiKey: key.value,
-        billingMode: document.getElementById('minimaxBillingModeInput').value,
-        apiRegion: document.getElementById('minimaxApiRegionInput').value });
-      if (!result?.ok) { setAccountShellError('minimax', minimaxProfileErrorText(result)); return; }
-      name.value = ''; key.value = '';
+      const fields = {
+        name: document.getElementById('minimaxProfileName'), apiKey: document.getElementById('minimaxApiKeyInput'),
+        billingMode: document.getElementById('minimaxBillingModeInput'), apiRegion: document.getElementById('minimaxApiRegionInput')
+      };
+      const draft = Object.fromEntries(Object.entries(fields).map(([key, input]) => [key, input.value]));
+      const result = await window.tokenMonitor.minimax.saveProfile(draft);
+      const unchanged = Object.entries(fields).every(([key, input]) => input.value === draft[key]);
+      if (!result?.ok) {
+        if (unchanged) setAccountShellError('minimax', minimaxProfileErrorText(result));
+        return;
+      }
+      if (unchanged) { fields.name.value = ''; fields.apiKey.value = ''; }
       renderMinimaxProfiles();
       await refreshStats();
     }));

@@ -9389,6 +9389,7 @@ app.whenReady().then(() => {
     probeDeps: () => electronProviderDeps({ env: {}, signal: AbortSignal.timeout(15_000) }),
     changed: (accountKey, refresh, reason) => {
       credentialCommands.noteSettingsPatch({ minimaxApiKey: '' });
+      deviceRuntimeHandle?.reconfigureLimits(electronLimitsConfig());
       void queueLimitInvalidation({ provider: 'minimax', source: 'api', accountKey }, reason, { clear: true, refresh });
       pushSettingsToRenderer();
     }

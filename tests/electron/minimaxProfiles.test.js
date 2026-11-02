@@ -6,14 +6,14 @@ const { createMinimaxProfiles } = require('../../src/electron/providers/minimax/
 const { hashKey } = require('../../src/shared/hashKey');
 
 function fixture(initial = {}, response = () => ({ ok: true, status: 200,
-  json: async () => ({ available_amount: 8, base_resp: { status_code: 0 } }) })) {
+  json: async () => ({ available_amount: 8, base_resp: { status_code: 0 } }) }), env = { MINIMAX_CODING_API_KEY: 'env-secret' }) {
   let settings = structuredClone(initial);
   const changes = [];
   const requests = [];
   const api = createMinimaxProfiles({
     getSettings: () => settings,
     saveSettings: () => {},
-    env: { MINIMAX_CODING_API_KEY: 'env-secret' },
+    env,
     changed: (key, refresh) => changes.push({ key, refresh }),
     probeDeps: () => ({ fetch: async (url, init) => { requests.push({ url, init }); return response(url, init); } })
   });
@@ -23,7 +23,8 @@ function fixture(initial = {}, response = () => ({ ok: true, status: 200,
 }
 
 test('MiniMax profiles keep legacy credentials read-only until a validated profile edit migrates them', async () => {
-  const f = fixture({ minimaxApiKey: 'legacy-secret', minimaxBillingMode: 'api', minimaxApiRegion: 'cn' });
+  const f = fixture({ minimaxApiKey: 'legacy-secret', minimaxBillingMode: 'api', minimaxApiRegion: 'cn',
+    limitsEnabled: false, limitProviders: '' });
   assert.equal(f.api.getProfiles().profiles.default.apiKey, 'set');
   assert.equal(f.settings().minimaxApiKey, 'legacy-secret');
   assert.equal((await f.api.saveProfile({ name: 'work', apiKey: 'work-secret', billingMode: 'api', apiRegion: 'intl' })).ok, true);
@@ -32,15 +33,21 @@ test('MiniMax profiles keep legacy credentials read-only until a validated profi
   assert.equal(f.settings().minimaxApiKey, '');
   assert.equal(f.settings().minimaxApiProfiles.default.apiKey, 'legacy-secret');
   assert.equal(f.settings().minimaxApiProfiles.work.apiRegion, 'intl');
+  assert.equal(f.settings().limitsEnabled, true);
+  assert.equal(f.settings().limitProviders, 'minimax');
   assert.ok(f.changes.some(change => change.key === hashKey('minimax', 'env-secret') && change.refresh),
     'migrating away from a legacy override also refreshes the newly available environment lane');
   assert.equal(JSON.stringify(f.api.getProfiles()).includes('-secret'), false);
+  f.patch({ limitsEnabled: false, limitProviders: '' });
   f.api.renameProfile('work', 'office');
   assert.equal(f.settings().minimaxApiProfiles.office.apiKey, 'work-secret');
   f.api.setProfileEnabled('office', false);
   assert.equal(f.settings().minimaxApiProfiles.office.enabled, false);
+  f.api.setProfileEnabled('office', true);
   f.api.deleteProfile('office');
   assert.equal(f.settings().minimaxApiProfiles.office, undefined);
+  assert.equal(f.settings().limitsEnabled, false, 'profile maintenance must preserve the collection switch');
+  assert.equal(f.settings().limitProviders, '');
   await f.api.saveProfile({ name: 'env-copy', apiKey: 'env-secret', billingMode: 'api', apiRegion: 'cn' });
   f.api.setProfileEnabled('env-copy', false);
   assert.equal(f.api.getProfiles().hasEnvVar, false);
@@ -72,21 +79,51 @@ test('MiniMax profiles use the shared indeterminate verdict and retain a key whi
   assert.equal(f.settings().minimaxApiProfiles.work.apiRegion, 'intl');
   await assert.rejects(f.api.saveProfile({ name: 'duplicate', apiKey: 'saved-secret', billingMode: 'api', apiRegion: 'cn' }), /already has a profile/);
   assert.equal(f.settings().minimaxApiProfiles.duplicate, undefined);
+  const inherited = fixture({ minimaxApiProfiles: { work: { apiKey: 'saved-secret', billingMode: 'api', apiRegion: '' } } },
+    undefined, { MINIMAX_API_REGION: 'cn' });
+  assert.equal((await inherited.api.saveProfile({ name: 'work', billingMode: 'api', apiRegion: '' })).ok, true);
+  assert.equal(inherited.settings().minimaxApiProfiles.work.apiRegion, '');
+  assert.equal(inherited.requests[0].url, 'https://api.minimaxi.com/account/query_balance');
+  const { limitProviderEntry } = require('../../src/shared/limits/registry');
+  assert.equal(limitProviderEntry('minimax').envProbe.probe({ MINIMAX_API_REGION: 'cn' }), 'cn');
 });
 
-test('MiniMax profile migration stores keys only in the shared credential document', async t => {
+test('MiniMax profile IPC persists private keys and activates the current runtime configuration', async t => {
   const fs = require('node:fs');
   const path = require('node:path');
   const { CredentialStore, persistSettingsAndCredentials } = require('../../src/shared/credentialStore');
   const directory = fs.mkdtempSync(path.join(require('node:os').tmpdir(), 'minimax-profiles-'));
   t.after(() => fs.rmSync(directory, { recursive: true, force: true }));
   const store = new CredentialStore(directory);
-  const settings = { minimaxApiKey: 'legacy-secret', minimaxBillingMode: 'api' };
-  const api = createMinimaxProfiles({ getSettings: () => settings,
+  const settings = { minimaxApiKey: 'legacy-secret', minimaxBillingMode: 'api', limitsEnabled: false, limitProviders: '' };
+  const { createLimitsRuntime } = require('../../src/shared/limits/runtime');
+  const { fetchMinimaxLimits } = require('../../src/shared/providers/minimax/limits');
+  const { runLimitInvalidation } = require('../../src/electron/deviceRuntimeCoordinator');
+  const fetch = async () => ({ ok: true, json: async () => ({ available_amount: 5 }) });
+  const runtime = createLimitsRuntime(settings, { autoStart: false, autoRetry: false,
+    probeProvider: (_id, options) => fetchMinimaxLimits(options, { env: {}, homeDir: directory, fetch }) });
+  t.after(() => runtime.stop());
+  const refreshes = [];
+  const handlers = new Map();
+  const main = fs.readFileSync(path.join(__dirname, '../../src/electron/main.js'), 'utf8');
+  require('node:vm').runInNewContext(main.slice(main.indexOf('  const minimaxProfiles = createMinimaxProfiles('),
+    main.indexOf("  ipcMain.handle('openrouter:getProfiles'")), {
+    settings, createMinimaxProfiles, AbortSignal,
     saveSettings: () => persistSettingsAndCredentials({ store, settingsPath: path.join(directory, 'settings.json'),
-      settings, previousSettings: {} }), changed() {}, env: {},
-    probeDeps: () => ({ fetch: async () => ({ ok: true, json: async () => ({ available_amount: 5 }) }) }) });
-  assert.equal((await api.saveProfile({ name: 'work', apiKey: 'work-secret', billingMode: 'api', apiRegion: 'cn' })).ok, true);
+      settings, previousSettings: {} }),
+    electronProviderDeps: deps => ({ ...deps, fetch }), electronLimitsConfig: () => settings,
+    deviceRuntimeHandle: { reconfigureLimits: config => runtime.reconfigure(config) },
+    credentialCommands: { noteSettingsPatch() {} }, pushSettingsToRenderer() {},
+    queueLimitInvalidation: (scope, reason, flags) => {
+      const refresh = runLimitInvalidation({ clearLimits: runtime.clear, refreshLimits: runtime.refresh }, scope, reason, flags);
+      refreshes.push(refresh);
+      return refresh;
+    },
+    ipcMain: { handle: (name, handler) => handlers.set(name, handler) }
+  });
+  assert.equal((await handlers.get('minimax:saveProfile')({}, { name: 'work', apiKey: 'work-secret', billingMode: 'api', apiRegion: 'cn' })).ok, true);
+  await Promise.all(refreshes);
+  assert.equal(runtime.getSnapshot().providers.find(row => row.accountName === 'work')?.status, 'ok');
   assert.equal(fs.readFileSync(path.join(directory, 'settings.json'), 'utf8').includes('-secret'), false);
   const saved = store.readDocument().credentials.providers.minimax;
   assert.equal(saved.profiles.default.apiKey, 'legacy-secret');
