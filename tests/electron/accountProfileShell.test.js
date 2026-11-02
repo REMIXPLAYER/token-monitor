@@ -53,9 +53,6 @@ function minimaxPanelHarness() {
     state, accountShellApi, accountShellErrors: {}, accountProfileRequests: accountShellApi.createRequestGuard(),
     accountProfileSaves: accountShellApi.createBusyGuard(),
     limitProviderPresentationApi: require('../../src/electron/renderer/limits/providerPresentation'),
-    limitAccountTitle: require('../../src/electron/renderer/limits/windowsView').createLimitWindowsView({
-      settings: () => state.settings, accountIdentity: require('../../src/electron/renderer/accountIdentity')
-    }).limitAccountTitle,
     translatedLimitProviderTag: tag => tag?.label || '',
     externalProviderForAccount: () => providers.find(row => row.source === 'api'),
     t, isSettingsSurfaceVisible: () => true, renderSettingsSummaries() {}, refreshStats: async () => {},
@@ -139,22 +136,26 @@ test('MiniMax keys use independent API status and billing links, with removal on
   const info = id => h.rows().find(node => node.dataset.minimaxKey === id).querySelector('.managed-account-info');
   const labels = () => h.rows().map(row => row.querySelector('.managed-account-email').textContent);
   const apiLabel = t('settings.minimax.billingApi');
-  assert.deepEqual(labels(), [`Account 1 · ${apiLabel}`, 'Account 2 · Token Plan', `Account 3 · ${apiLabel}`]);
+  const tokenLabel = t('settings.minimax.billingTokenPlan');
+  const envLabel = t('settings.minimax.environment');
+  const accountLabel = number => t('settings.minimax.accountFallback', { number });
+  assert.deepEqual(labels(), [`${accountLabel(1)} · ${apiLabel}`, `${accountLabel(2)} · ${tokenLabel}`, `${envLabel} · ${apiLabel}`]);
   for (const [status, message] of [['ok', t('settings.minimax.statusSet')], ['unauthorized', t('settings.minimax.statusInvalid')], ['unavailable', t('settings.common.unavailable')]]) {
     h.status([{ source: 'oauth', status: 'ok', accountKey: 'a' }, { source: 'api', accountKey: 'a', region: 'en', status }]);
     assert.equal(info('a').textContent, message);
-    assert.equal(h.get('minimaxStatus').textContent, 'Live', 'a healthy Code reading keeps the shared provider status live');
+    assert.equal(h.get('minimaxStatus').textContent, t('settings.limits.status.live'), 'a healthy Code reading keeps the shared provider status live');
   }
   h.status([{ source: 'oauth', status: 'ok', accountKey: 'a' }]);
   assert.equal(info('a').textContent, t('settings.common.checking'));
   h.status([], false);
   assert.equal(info('a').textContent, t('settings.limits.status.disabled'));
-  assert.equal(h.get('minimaxStatus').textContent, 'Disabled');
+  assert.equal(h.get('minimaxStatus').textContent, t('settings.limits.status.disabled'));
   h.status([{ source: 'api', accountKey: 'a', region: 'cn', relatedAccountKey: 'code', status: 'ok' },
     { source: 'api', accountKey: 'b', region: 'cn', relatedAccountKey: 'code', status: 'ok' },
     { source: 'api', accountKey: 'c', region: 'cn', status: 'ok' },
     { source: 'oauth', accountKey: 'code', region: 'cn', status: 'ok' }]);
-  assert.deepEqual(labels(), [`Account 1 · ${apiLabel}`, 'Account 1 · Token Plan', `Account 2 · ${apiLabel}`]);
+  assert.deepEqual(labels(), [`${accountLabel(1)} · ${apiLabel}`, `${accountLabel(2)} · ${tokenLabel}`, `${envLabel} · ${apiLabel}`]);
+  assert.equal(info('c').textContent, t('settings.minimax.statusEnv'));
   h.status([{ source: 'api', accountKey: 'a', region: 'en', status: 'ok' }]);
   h.buttons('settings.minimax.openBrowser').forEach(button => button.click());
   assert.deepEqual(h.opened, ['https://platform.minimax.io/user-center/payment/balance',
