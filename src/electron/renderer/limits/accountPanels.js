@@ -25,10 +25,7 @@ function byFieldValue(document, spec) {
   return spec.values[current] ?? Object.values(spec.values)[0];
 }
 
-// The page Open lands on. `byField` follows a select before its change is
-// saved; `byStatus` follows the provider's last successful poll (MiniMax's
-// region), with `default` until there is one. A form with both uses statusUrls
-// only when the select has no explicit URL (for example Auto).
+// Explicit selections precede the last successful poll and the default URL.
 function resolveOpenUrl(form, { document, provider }) {
   const { openUrl } = form;
   if (openUrl.url) return openUrl.url;

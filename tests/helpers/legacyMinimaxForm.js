@@ -1,7 +1,6 @@
 'use strict';
 
-// Keep the existing generic-form/legacy-credential contract tests independent
-// of MiniMax's new profile panel. No credential values live in this fixture.
+// Legacy declarative-form contract fixture; credentials are never included.
 const declarations = require('../../src/shared/providers/minimax/account');
 const regionUrls = {
   cn: 'https://platform.minimaxi.com/user-center/payment/token-plan',

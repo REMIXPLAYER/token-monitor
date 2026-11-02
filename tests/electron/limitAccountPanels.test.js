@@ -9,7 +9,6 @@ const vm = require('node:vm');
 const { createCredentialPanel } = require('../../src/electron/renderer/limits/accountPanels');
 const { limitAccountFormsForRenderer } = require('../../src/electron/limits/accountSettings');
 const legacyMinimaxForm = require('../helpers/legacyMinimaxForm');
-// The former MiniMax declaration remains a fixture for generic form behavior.
 const genericFormsForTest = () => [...limitAccountFormsForRenderer(), legacyMinimaxForm];
 const i18n = require('../../src/electron/renderer/i18n');
 

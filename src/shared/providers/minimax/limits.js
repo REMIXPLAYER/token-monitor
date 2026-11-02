@@ -76,7 +76,7 @@ function minimaxProfileName(value) {
   return normalizeNamedProfileName(value, { reservedNames: ['environment'] });
 }
 
-// Legacy settings remain readable; a profile edit can move that key into the map.
+// Reading legacy settings must not migrate or rewrite credentials.
 function minimaxApiProfiles(options = {}) {
   const profiles = Object.create(null);
   for (const [rawName, value] of Object.entries(options.minimaxApiProfiles || {})) {
@@ -215,7 +215,6 @@ function parseMinimaxCodePlan(body) {
   return windows;
 }
 
-// Persistence must not turn an implicit environment choice into a stored pin.
 // minimaxApiHost remains a supported legacy region setting.
 function minimaxRegion(options = {}, env = {}) {
   const raw = String(
@@ -309,8 +308,7 @@ function minimaxAttemptSpecs(options = {}, env = {}) {
   return minimaxRegionOrder(options, env).flatMap((region) => minimaxUrlsForRegion(region, options.minimaxBillingMode));
 }
 
-// Pick a single URL for callers that want a forced region without retry
-// behavior (legacy `minimaxBaseUrl` shape). Default is the global endpoint.
+// Legacy minimaxBaseUrl callers resolve one endpoint without probing or retries.
 function minimaxBaseUrl(options = {}, env = {}) {
   return minimaxRegion(options, env) === 'cn' ? MINIMAX_REMAINS_URL_CN : MINIMAX_REMAINS_URL_EN;
 }
@@ -774,8 +772,7 @@ async function linkMinimaxAccounts(rows, options, deps, context, key, apiAccount
     || previous.some(row => row.region === 'cn' && (
       (row.accountKey === apiAccountKey && row.relatedAccountKey === code.accountKey)
       || (row.accountKey === code.accountKey && row.relatedAccountKey === apiAccountKey)));
-  // A new confirmation is one read by a CN pay-as-you-go key. Changing the
-  // billing type keeps a pair that was already verified.
+  // Only a CN pay-as-you-go key can establish affiliation; billing-type edits retain it.
   if (!linked && identity?.accountKey === code.accountKey && apiRegion === 'cn'
     && normalizeMinimaxBillingMode(options.minimaxBillingMode) === 'api' && api.status === 'ok' && code.status === 'ok') {
     try {
