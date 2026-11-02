@@ -326,7 +326,7 @@ function normalizeInitialViewValue(value, allowed, fallback) {
   return allowed.has(raw) || (allowed === viewBreakdownValues && pluginPlacementsApi.isHomeToken(raw)) ? raw : fallback;
 }
 
-const state = { period: normalizeInitialViewValue(initialViewState.period, viewPeriodValues, 'today'), appUpdate: null, breakdown: normalizeInitialViewValue(initialViewState.breakdown, viewBreakdownValues, 'home'), viewSwitcherOpen: false, viewSwitcherHasOpened: false, limitDetailTooltipHasOpened: false, limitDetailTooltipActive: false, limitDetailTooltipRenderPending: false, settings: null, windowVisible: new URLSearchParams(window.location.search).get('windowHidden') !== '1', stats: null, homeHistory: null, homeHistoryBusy: false, homeHistoryRequested: false, homeHistorySignature: '', homeHistoryRetries: 0, homeHistoryRetryTimer: null, homeActivityScrollLeft: null, homeActivityFollowEnd: true, homeActivityResizeObserver: null, serviceStatus: null, serviceStatusBusy: false, serviceProvidersExpanded: false, trendSettingsExpanded: false, trendsActivating: false, homeSettingsExpanded: false, homeLimitSettingsExpanded: false, limitProviderSettingsExpanded: '', clientHealthExpanded: '', clientSources: clientSourceCacheApi.createClientSourceCache(), clientSourcesKey: '', clientSourcesRequest: 0, subscriptionEditingId: '', subscriptionTopUps: [], subscriptionFormBase: null, subscriptionEditorTransitionId: 0, serviceStatusTicker: null, refreshTimer: null, refreshBusy: false, refreshFeedbackTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, streamFailure: null, mode: 'idle', appInfo: null, systemDarkUi: false, tokscaleStatus: null, hubInfo: null, hubBuildStatus: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, codexAccountExpanded: false, codexAccountError: '', codexSignInBusy: false, codexSignInFlowId: '', codexLoginUrl: '', codexLoginStatus: '', codexLoginOutput: '', codexWorkspaceChoices: [], codexWorkspaceId: '', codexActiveAccount: null, codexPendingActiveAccount: null, codexPendingActiveAccountUntil: 0, codexPendingActiveAccountTimer: null, customPricingExpanded: false, claudeAccountExpanded: false, claudePendingCheckSince: 0, opencodeProfileCount: 0, opencodeCookieExpanded: false, openrouterProfileCount: 0, openrouterAccountExpanded: false, thirdPartyProfileCount: 0, thirdPartyAccountExpanded: false, deepseekAccountExpanded: false, deepseekPendingCheckSince: 0, minimaxAccountExpanded: false, minimaxProfileCount: 0, minimaxPendingCheckSince: 0, factoryAccountExpanded: false, factoryPendingCheckSince: 0, clineAccountExpanded: false, clinePendingCheckSince: 0, zaiAccountExpanded: false, zaiPendingCheckSince: 0, zaiteamAccountExpanded: false, zaiteamPendingCheckSince: 0, volcengineAccountExpanded: false, volcenginePendingCheckSince: 0, volcengineAgentExpanded: false, qoderAccountExpanded: false, qoderPendingCheckSince: 0, kimiAccountExpanded: false, kimiPendingCheckSince: 0, ollamaAccountExpanded: false, ollamaPendingCheckSince: 0, mimoAccountExpanded: false, mimoAccountError: '', antigravityAccountExpanded: false, antigravityAccountError: '', antigravitySignInBusy: false, workbuddyAccountExpanded: false, workbuddyAccountError: '', workbuddySignInBusy: false, workbuddyCancelBusy: false, workbuddyMutationBusy: false, workbuddyLoginAttempt: 0, workbuddyLoginStatusKey: '', workbuddyAccountsRevision: 0, copilotAccountExpanded: false, copilotManualExpanded: false, copilotPendingCheckSince: 0, copilotSignInBusy: false, copilotSignInCancelable: false, copilotSignInFlowId: '', copilotAuthorizeMessage: '', copilotLoginStatus: '', copilotErrorMessage: '', floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true, openSession: null, detailSort: 'time', recordingWindowShortcut: false, windowShortcutInvalid: false, toolSearchQuery: '', limitProviderSearchQuery: '', accountPanelMessages: {} };
+const state = { period: normalizeInitialViewValue(initialViewState.period, viewPeriodValues, 'today'), appUpdate: null, breakdown: normalizeInitialViewValue(initialViewState.breakdown, viewBreakdownValues, 'home'), viewSwitcherOpen: false, viewSwitcherHasOpened: false, limitDetailTooltipHasOpened: false, limitDetailTooltipActive: false, limitDetailTooltipRenderPending: false, settings: null, windowVisible: new URLSearchParams(window.location.search).get('windowHidden') !== '1', stats: null, homeHistory: null, homeHistoryBusy: false, homeHistoryRequested: false, homeHistorySignature: '', homeHistoryRetries: 0, homeHistoryRetryTimer: null, homeActivityScrollLeft: null, homeActivityFollowEnd: true, homeActivityResizeObserver: null, serviceStatus: null, serviceStatusBusy: false, serviceProvidersExpanded: false, trendSettingsExpanded: false, trendsActivating: false, homeSettingsExpanded: false, homeLimitSettingsExpanded: false, limitProviderSettingsExpanded: '', clientHealthExpanded: '', clientSources: clientSourceCacheApi.createClientSourceCache(), clientSourcesKey: '', clientSourcesRequest: 0, subscriptionEditingId: '', subscriptionTopUps: [], subscriptionFormBase: null, subscriptionEditorTransitionId: 0, serviceStatusTicker: null, refreshTimer: null, refreshBusy: false, refreshFeedbackTimer: null, currentTotal: 0, rowSignature: '', streamConnected: false, streamFailure: null, mode: 'idle', appInfo: null, systemDarkUi: false, tokscaleStatus: null, hubInfo: null, hubBuildStatus: null, cursorAccount: { status: null, error: '' }, cursorAccountExpanded: false, codexAccountExpanded: false, codexAccountError: '', codexSignInBusy: false, codexSignInFlowId: '', codexLoginUrl: '', codexLoginStatus: '', codexLoginOutput: '', codexWorkspaceChoices: [], codexWorkspaceId: '', codexActiveAccount: null, codexPendingActiveAccount: null, codexPendingActiveAccountUntil: 0, codexPendingActiveAccountTimer: null, customPricingExpanded: false, claudeAccountExpanded: false, claudePendingCheckSince: 0, opencodeProfileCount: 0, opencodeCookieExpanded: false, openrouterProfileCount: 0, openrouterAccountExpanded: false, thirdPartyProfileCount: 0, thirdPartyAccountExpanded: false, deepseekAccountExpanded: false, deepseekPendingCheckSince: 0, minimaxAccountExpanded: false, minimaxPendingCheckSince: 0, factoryAccountExpanded: false, factoryPendingCheckSince: 0, clineAccountExpanded: false, clinePendingCheckSince: 0, zaiAccountExpanded: false, zaiPendingCheckSince: 0, zaiteamAccountExpanded: false, zaiteamPendingCheckSince: 0, volcengineAccountExpanded: false, volcenginePendingCheckSince: 0, volcengineAgentExpanded: false, qoderAccountExpanded: false, qoderPendingCheckSince: 0, kimiAccountExpanded: false, kimiPendingCheckSince: 0, ollamaAccountExpanded: false, ollamaPendingCheckSince: 0, mimoAccountExpanded: false, mimoAccountError: '', antigravityAccountExpanded: false, antigravityAccountError: '', antigravitySignInBusy: false, workbuddyAccountExpanded: false, workbuddyAccountError: '', workbuddySignInBusy: false, workbuddyCancelBusy: false, workbuddyMutationBusy: false, workbuddyLoginAttempt: 0, workbuddyLoginStatusKey: '', workbuddyAccountsRevision: 0, copilotAccountExpanded: false, copilotManualExpanded: false, copilotPendingCheckSince: 0, copilotSignInBusy: false, copilotSignInCancelable: false, copilotSignInFlowId: '', copilotAuthorizeMessage: '', copilotLoginStatus: '', copilotErrorMessage: '', floatingBubble: initialFloatingBubble, suppressInitialNumberAnimation: window.__TOKEN_MONITOR_SUPPRESS_INITIAL_NUMBER_ANIMATION__ === true, openSession: null, detailSort: 'time', recordingWindowShortcut: false, windowShortcutInvalid: false, toolSearchQuery: '', limitProviderSearchQuery: '', accountPanelMessages: {} };
 state.devinAccountExpanded = false;
 state.devinPendingCheckSince = 0;
 state.icloudStatus = null;
@@ -9821,7 +9821,7 @@ function syncSettingsForm() {
   renderSettingsSummaries();
   renderOpenCodeProfiles();
   renderOpenRouterProfiles();
-  renderMinimaxProfiles();
+  renderMinimaxApiKeys();
   renderThirdPartyProfiles();
   buildAppearanceColorControls();
   renderTokscaleStatus();
@@ -14527,7 +14527,7 @@ function renderStatsUpdate() {
   renderToolPreferences();
   renderWslPanel();
   updateOpenRouterProfilesStatus();
-  updateMinimaxProfilesStatus();
+  updateMinimaxApiKeysStatus();
   updateThirdPartyProfilesStatus();
   renderExternalProviderStatus('volcengine');
   renderExternalProviderStatus('kimi');
@@ -17825,11 +17825,10 @@ function updateNamedApiProfilesStatus({
   providerId,
   profileSettingsKey,
   profileCountStateKey,
-  statusText,
-  selectProviders = (rows) => rows
+  statusText
 }) {
   const providerEnabled = limitProviderEnabled(providerId);
-  const providers = selectProviders(localProviderStatuses(providerId));
+  const providers = localProviderStatuses(providerId);
   const byName = new Map(providers.map((provider) => [
     String(provider.accountName || provider.accountLabel || ''),
     provider
@@ -17860,33 +17859,29 @@ function updateNamedApiProfilesStatus({
   });
 }
 
-function updateMinimaxProfilesStatus() {
-  updateNamedApiProfilesStatus({
-    providerId: 'minimax', profileSettingsKey: 'minimaxApiProfiles', profileCountStateKey: 'minimaxProfileCount',
-    selectProviders: (rows) => rows.filter(row => row.source === 'api'),
-    statusText: (provider, options) => {
-      const status = limitProviderPresentationApi.namedApiProfileStatus(provider, options);
-      if (status === 'linked') return '✓';
-      if (status === 'hidden') return '';
-      return t(status === 'disabled' ? 'settings.profiles.disabled' : `settings.minimax.${status === 'invalid' ? 'invalidKey' : status === 'checking' ? 'checking' : 'unavailable'}`);
-    }
-  });
+function updateMinimaxApiKeysStatus() {
+  const rows = localProviderStatuses('minimax').filter(row => row.source === 'api');
+  for (const info of document.querySelectorAll('[data-minimax-key]')) {
+    const key = state.minimaxApiKeys?.find(key => key.accountKey === info.dataset.minimaxKey);
+    const status = limitProviderPresentationApi.namedApiProfileStatus(rows.find(row => row.accountKey === key?.accountKey), {
+      providerEnabled: limitProviderEnabled('minimax'), profileEnabled: key?.enabled !== false
+    });
+    info.textContent = status === 'linked' ? '✓' : status === 'hidden' ? '' : t(status === 'disabled'
+      ? 'settings.profiles.disabled' : `settings.minimax.${status === 'invalid' ? 'invalidKey' : status === 'checking' ? 'checking' : 'unavailable'}`);
+  }
 }
 
-function minimaxProfileErrorText(result) {
-  if (result?.errorCode === 'invalidName') return t('settings.minimax.invalidName');
+function minimaxKeyErrorText(result) {
   return result?.error || t(['required', 'notConfigured'].includes(result?.status) ? 'settings.minimax.statusNotSet'
     : result?.status === 'unauthorized' ? 'settings.minimax.invalidKey' : 'settings.minimax.unavailable');
 }
 
-function minimaxBillingUrl(name, profile) {
-  const row = localProviderStatuses('minimax').find(row => row.source === 'api' && row.accountName === name);
-  const region = profile.apiRegion || (Object.hasOwn(profile, 'apiRegion')
-    ? state.settings?.minimaxEnvRegion : state.settings?.minimaxApiRegion) || 'auto';
+function minimaxBillingUrl(key) {
+  const row = localProviderStatuses('minimax').find(row => row.source === 'api' && row.accountKey === key.accountKey);
+  const region = key.apiRegion || 'auto';
   const intl = region === 'intl' || (region === 'auto' && row?.region === 'en');
   const origin = intl ? 'https://platform.minimax.io' : 'https://platform.minimaxi.com';
-  const path = (profile.billingMode || state.settings?.minimaxBillingMode) === 'api' ? 'balance' : 'token-plan';
-  return `${origin}/user-center/payment/${path}`;
+  return `${origin}/user-center/payment/${key.billingMode === 'api' ? 'balance' : 'token-plan'}`;
 }
 
 function updateOpenRouterProfilesStatus() {
@@ -17945,8 +17940,7 @@ function appendNamedApiProfileRow(listEl, config) {
     rerender,
     updateStatus,
     errorText,
-    detail = '',
-    openProfile = null
+    detail = ''
   } = config;
   const item = document.createElement('div');
   item.className = 'opencode-profile-item';
@@ -18051,15 +18045,6 @@ function appendNamedApiProfileRow(listEl, config) {
   info.textContent = t(`settings.${providerId}.checking`);
   rightBox.append(info);
 
-  if (openProfile) {
-    const open = document.createElement('button');
-    open.className = 'profile-open';
-    open.textContent = '↗';
-    open.setAttribute('aria-label', t(`settings.${providerId}.openBrowser`));
-    open.addEventListener('click', () => openProfile(env ? 'environment' : name, profile));
-    rightBox.append(open);
-  }
-
   if (!env) {
     const deleteBtn = document.createElement('button');
     deleteBtn.className = 'profile-delete';
@@ -18094,8 +18079,7 @@ function renderNamedApiProfiles(config) {
     rerender,
     updateStatus,
     errorText,
-    detailForProfile = () => '',
-    openProfile = null
+    detailForProfile = () => ''
   } = config;
   const listEl = document.getElementById(`${providerId}ProfileList`);
   if (!listEl || !api) return;
@@ -18127,7 +18111,7 @@ function renderNamedApiProfiles(config) {
         rerender,
         updateStatus,
         errorText,
-        detail: detailForProfile(profile), openProfile
+        detail: detailForProfile(profile)
       });
     }
     if (hasEnvVar) {
@@ -18137,7 +18121,7 @@ function renderNamedApiProfiles(config) {
         env: true,
         rerender,
         updateStatus,
-        errorText, openProfile
+        errorText
       });
     }
     updateStatus();
@@ -18164,17 +18148,63 @@ function renderOpenRouterProfiles() {
   });
 }
 
-function renderMinimaxProfiles() {
-  renderNamedApiProfiles({
-    providerId: 'minimax', profileSettingsKey: 'minimaxApiProfiles', envConfiguredKey: 'minimaxEnvConfigured',
-    profileCountStateKey: 'minimaxProfileCount', api: window.tokenMonitor.minimax,
-    rerender: renderMinimaxProfiles, updateStatus: updateMinimaxProfilesStatus, errorText: minimaxProfileErrorText,
-    openProfile: (name, profile) => window.tokenMonitor.openExternal(minimaxBillingUrl(name, profile)),
-    detailForProfile: (profile) => [
-      t(`settings.minimax.${profile.billingMode === 'api' ? 'billingApi' : 'billingTokenPlan'}`),
-      t(`settings.minimax.${profile.apiRegion === 'cn' ? 'regionCn' : profile.apiRegion === 'intl' ? 'regionIntl' : profile.apiRegion === '' ? 'regionInherited' : 'regionAuto'}`)
-    ].join(' · ')
-  });
+async function renderMinimaxApiKeys() {
+  if (!isSettingsSurfaceVisible()) return;
+  const list = document.getElementById('minimaxKeyList');
+  const isCurrent = accountProfileRequests.begin('minimax');
+  try {
+    const keys = await window.tokenMonitor.minimax.getKeys();
+    if (!isCurrent() || !isSettingsSurfaceVisible()) return;
+    state.minimaxApiKeys = keys;
+    accountShellApi.render({ status: document.getElementById('minimaxStatus'), statusText: t('settings.minimax.nKeys', { count: keys.length }) });
+    list.replaceChildren();
+    for (const [index, key] of keys.entries()) {
+      const row = document.createElement('div');
+      row.className = 'managed-account-row';
+      const label = document.createElement('span');
+      label.className = 'managed-account-main managed-account-email';
+      label.textContent = `${key.removable ? `API Key ${index + 1}` : t('settings.minimax.environment')} · ${t(`settings.minimax.${key.billingMode === 'api' ? 'billingApi' : 'billingTokenPlan'}`)}`;
+      const actions = document.createElement('span');
+      actions.className = 'managed-account-right';
+      const info = document.createElement('span');
+      info.className = 'managed-account-info';
+      info.dataset.minimaxKey = key.accountKey;
+      const open = document.createElement('button');
+      open.className = 'managed-account-remove';
+      open.textContent = '↗';
+      open.setAttribute('aria-label', t('settings.minimax.openBrowser'));
+      open.addEventListener('click', () => window.tokenMonitor.openExternal(minimaxBillingUrl(key)));
+      actions.append(info, open);
+      if (key.removable) {
+        const remove = document.createElement('button');
+        remove.className = 'managed-account-remove';
+        remove.textContent = '✕';
+        remove.setAttribute('aria-label', t('settings.minimax.clearApiKey'));
+        let confirming = false;
+        remove.addEventListener('click', () => {
+          if (!confirming) {
+            confirming = true;
+            remove.textContent = '✓';
+            remove.classList.add('confirming');
+            remove.setAttribute('aria-label', t('settings.profiles.deleteConfirm', { name: label.textContent }));
+            return;
+          }
+          return accountProfileSaves.run('minimax', remove, async () => {
+            const result = await window.tokenMonitor.minimax.removeKey(key.id);
+            setAccountShellError('minimax', result?.ok ? '' : minimaxKeyErrorText(result));
+            if (result?.ok) { await renderMinimaxApiKeys(); await refreshStats(); }
+          });
+        });
+        actions.append(remove);
+      }
+      row.append(document.createElement('span'), label, actions);
+      list.append(row);
+    }
+    updateMinimaxApiKeysStatus();
+    renderSettingsSummaries();
+  } catch (_) {
+    if (isCurrent()) setAccountShellError('minimax', t('settings.minimax.unavailable'));
+  }
 }
 
 function renderThirdPartyProfiles() {
@@ -18951,40 +18981,28 @@ function setupCursorAccountUI() {
     minimaxToggle.addEventListener('click', () => {
       const expanded = !state.minimaxAccountExpanded;
       setExternalAccountExpanded('minimax', expanded);
-      if (expanded) renderMinimaxProfiles();
-    });
-    const add = document.getElementById('minimaxAddDetails');
-    document.getElementById('minimaxAddToggle').addEventListener('click', (event) => {
-      const expanded = add.classList.contains('hidden');
-      add.classList.toggle('hidden', !expanded);
-      event.currentTarget.setAttribute('aria-expanded', String(expanded));
-      document.getElementById('minimaxAddForm').classList.toggle('expanded', expanded);
+      if (expanded) renderMinimaxApiKeys();
     });
     document.getElementById('minimaxOpenBrowser').addEventListener('click', () => {
-      const entries = Object.entries(state.settings?.minimaxApiProfiles || {});
-      const name = document.getElementById('minimaxProfileName').value.trim();
-      const [target, profile] = !name && add.classList.contains('hidden') && entries.length === 1 ? entries[0]
-        : [name, { apiRegion: document.getElementById('minimaxApiRegionInput').value,
-          billingMode: document.getElementById('minimaxBillingModeInput').value }];
-      window.tokenMonitor.openExternal(minimaxBillingUrl(target, profile));
+      const billingMode = document.getElementById('minimaxBillingModeInput').value;
+      const key = state.minimaxApiKeys?.find(key => key.billingMode === billingMode && key.enabled !== false);
+      window.tokenMonitor.openExternal(minimaxBillingUrl(key || { billingMode, apiRegion: 'auto' }));
     });
     document.getElementById('minimaxRefreshButton').addEventListener('click', () => refreshLimitProviderQuota('minimax'));
-    const submit = document.getElementById('minimaxProfileSubmit');
+    const submit = document.getElementById('minimaxKeySubmit');
     submit.addEventListener('click', () => accountProfileSaves.run('minimax', submit, async () => {
       setAccountShellError('minimax', '');
-      const fields = {
-        name: document.getElementById('minimaxProfileName'), apiKey: document.getElementById('minimaxApiKeyInput'),
-        billingMode: document.getElementById('minimaxBillingModeInput'), apiRegion: document.getElementById('minimaxApiRegionInput')
-      };
-      const draft = Object.fromEntries(Object.entries(fields).map(([key, input]) => [key, input.value]));
-      const result = await window.tokenMonitor.minimax.saveProfile(draft);
-      const unchanged = Object.entries(fields).every(([key, input]) => input.value === draft[key]);
+      const input = document.getElementById('minimaxApiKeyInput');
+      const mode = document.getElementById('minimaxBillingModeInput');
+      const draft = { apiKey: input.value, billingMode: mode.value };
+      const result = await window.tokenMonitor.minimax.addKey(draft);
+      const unchanged = input.value === draft.apiKey && mode.value === draft.billingMode;
       if (!result?.ok) {
-        if (unchanged) setAccountShellError('minimax', minimaxProfileErrorText(result));
+        if (unchanged) setAccountShellError('minimax', minimaxKeyErrorText(result));
         return;
       }
-      if (unchanged) { fields.name.value = ''; fields.apiKey.value = ''; }
-      renderMinimaxProfiles();
+      if (unchanged) input.value = '';
+      await renderMinimaxApiKeys();
       await refreshStats();
     }));
   }

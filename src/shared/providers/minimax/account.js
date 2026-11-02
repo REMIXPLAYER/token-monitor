@@ -6,7 +6,7 @@ module.exports = {
   fetch: 'fetchMinimaxLimits',
   fields: [
     { key: 'minimaxApiProfiles', kind: 'profiles', invalidationSource: 'api',
-      storePath: ['providers', 'minimax', 'profiles'], configDefault: {}, persist: 'never', project: 'redact' },
+      storePath: ['providers', 'minimax', 'profiles'], configDefault: {}, persist: 'never' },
     {
       key: 'minimaxApiKey',
       kind: 'credential',
@@ -40,7 +40,6 @@ module.exports = {
       project: (value, limits) => limits.normalizeMinimaxBillingMode(value)
     }
   ],
-  envProbe: { key: 'minimaxEnvRegion', fn: (env, limits) => limits.minimaxRegion({}, env) },
   status: {
     credential: 'minimaxApiKey',
     configuredKey: 'minimaxApiKeyConfigured',

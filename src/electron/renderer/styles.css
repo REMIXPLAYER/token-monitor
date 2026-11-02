@@ -7578,8 +7578,7 @@ html.native-liquid-glass .view-switcher-menu-item { border-radius: 9px; }
   white-space: nowrap;
   font-variant-numeric: tabular-nums;
 }
-.opencode-profile-item .profile-delete,
-.opencode-profile-item .profile-open {
+.opencode-profile-item .profile-delete {
   flex: 0 0 auto;
   width: 18px;
   height: 18px;
@@ -7595,12 +7594,10 @@ html.native-liquid-glass .view-switcher-menu-item { border-radius: 9px; }
   opacity: 0.55;
   transition: opacity 0.15s, color 0.15s, background 0.15s;
 }
-.opencode-profile-item:hover .profile-delete,
-.opencode-profile-item:hover .profile-open {
+.opencode-profile-item:hover .profile-delete {
   opacity: 0.85;
 }
-.opencode-profile-item .profile-delete:hover,
-.opencode-profile-item .profile-open:hover {
+.opencode-profile-item .profile-delete:hover {
   opacity: 1;
   color: var(--text);
 }

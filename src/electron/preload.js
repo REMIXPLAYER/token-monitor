@@ -224,11 +224,9 @@ contextBridge.exposeInMainWorld('tokenMonitor', {
     setAmbientEnabled: (enabled) => ipcRenderer.invoke('opencode:setAmbientEnabled', enabled)
   },
   minimax: {
-    getProfiles: () => ipcRenderer.invoke('minimax:getProfiles'),
-    saveProfile: (profile) => ipcRenderer.invoke('minimax:saveProfile', profile),
-    deleteProfile: (name) => ipcRenderer.invoke('minimax:deleteProfile', name),
-    renameProfile: (name, renamed) => ipcRenderer.invoke('minimax:renameProfile', name, renamed),
-    setProfileEnabled: (name, enabled) => ipcRenderer.invoke('minimax:setProfileEnabled', name, enabled)
+    getKeys: () => ipcRenderer.invoke('minimax:getKeys'),
+    addKey: (key) => ipcRenderer.invoke('minimax:addKey', key),
+    removeKey: (id) => ipcRenderer.invoke('minimax:removeKey', id)
   },
   openrouter: {
     getProfiles: () => ipcRenderer.invoke('openrouter:getProfiles'),

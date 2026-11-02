@@ -504,6 +504,15 @@ test('a confirmed MiniMax account stays one heading, and a saved cost stays reac
   assert.equal(view.limitProviderPlan(api), '');
   assert.equal(view.limitProviderPlan({ ...api, accountLabel: 'Token Plan' }), '');
   assert.match(card([{ ...code, planLabel: 'Starter' }, api]).text, /Starter/);
+  const other = { ...api, accountKey: `sha256:${'c'.repeat(64)}`, relatedAccountKey: undefined };
+  const mixed = card([code, api, other]);
+  assert.match(mixed.text, /2 accounts/);
+  assert.match(mixed.text, /Account 1/);
+  assert.match(mixed.text, /Account 2/);
+  assert.doesNotMatch(mixed.text, /Account 3|3 accounts/);
+  assert.equal(view.limitAccountTitle('minimax', code, 0, [code, api, other]), 'Account 1');
+  assert.equal(view.limitAccountTitle('minimax', api, 1, [code, api, other]), 'Account 1');
+  assert.equal(view.limitAccountTitle('minimax', other, 2, [code, api, other]), 'Account 2');
   const unlinked = card([code, { ...api, relatedAccountKey: undefined }]);
   assert.match(unlinked.text, /Account 1/);
   assert.match(unlinked.text, /Account 2/);

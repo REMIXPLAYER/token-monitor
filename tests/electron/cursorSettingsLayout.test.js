@@ -746,7 +746,7 @@ test('Codex system account switching is exposed from limits account rows', () =>
   assert.doesNotMatch(renderLimits, /codexSwitchPopoverRenderPending/);
 });
 
-test('DeepSeek uses the generic form and MiniMax profiles use the shared account shell', () => {
+test('DeepSeek uses the generic form and MiniMax keys use the shared account shell', () => {
   const html = readRendererFile('index.html');
   const css = readRendererFile('styles.css');
   const { limitAccountFormsForRenderer } = require('../../src/electron/limits/accountSettings');
@@ -781,10 +781,10 @@ test('DeepSeek uses the generic form and MiniMax profiles use the shared account
   const minimax = require('../../src/shared/providers/minimax/account');
   assert.equal(minimax.form.kind, 'custom');
   assert.equal(forms.some(({ id }) => id === 'minimax'), false);
-  assert.match(html, /id="minimaxProfileList"/);
-  assert.match(html, /id="minimaxApiRegionInput"/);
+  assert.match(html, /id="minimaxKeyList"/);
+  assert.doesNotMatch(html, /id="minimaxApiRegionInput"/);
   assert.match(html, /id="minimaxBillingModeInput"/);
-  assert.match(app, /function renderMinimaxProfiles[\s\S]*?renderNamedApiProfiles/);
+  assert.match(app, /function renderMinimaxApiKeys/);
 
   // The region never becomes a credential: no store path, so it stays in
   // settings.json only after a selection; an implicit default stays empty.

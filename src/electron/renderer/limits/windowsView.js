@@ -1832,7 +1832,7 @@
     thirdparty: (provider, index) => namedApiAccountTitle(provider, index, 'thirdparty'),
     volcengine: (provider, index, providers) => volcenginePlanAccountTitle(provider, index, providers),
     mimo: (provider, index, providers) => mimoAccountTitle(provider, index, providers),
-    minimax: (provider, index, providers) => minimaxSameAccount(providers) ? '' : limitAccountDefaultTitle(provider, index, providers)
+    minimax: minimaxAccountTitle
   };
 
   // Fallback names for `provider.source`, used when the provider has no override
@@ -2366,12 +2366,25 @@
       && label !== 'Zen';
   }
 
-  function minimaxSameAccount(providers) {
-    if ((providers || []).length !== 2) return false;
-    const api = providers.find(row => row.source === 'api');
-    const code = providers.find(row => row.source === 'oauth');
-    return Boolean(api?.accountKey && code?.accountKey && api.region && api.region === code.region
-      && (api.relatedAccountKey === code.accountKey || code.relatedAccountKey === api.accountKey));
+  function minimaxAccountGroups(providers) {
+    const groups = new Map();
+    for (const provider of providers) {
+      const code = provider.source === 'api' && providers.find(row => row.source === 'oauth'
+        && row.accountKey && provider.accountKey && row.region && row.region === provider.region
+        && (provider.relatedAccountKey === row.accountKey || row.relatedAccountKey === provider.accountKey));
+      const key = code?.accountKey || provider.accountKey || provider;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(provider);
+    }
+    return [...groups.values()];
+  }
+
+  function minimaxAccountTitle(provider, index, providers) {
+    const groups = minimaxAccountGroups(providers);
+    if (providers.length > 1 && groups.length === 1) return '';
+    const representatives = groups.map(group => group[0]);
+    const groupIndex = groups.findIndex(group => group.includes(provider));
+    return limitAccountDefaultTitle(representatives[groupIndex], groupIndex, representatives);
   }
 
   function limitAccountDefaultTitle(provider, index, providerEntries = [provider]) {
@@ -2545,40 +2558,53 @@
     return row;
   }
 
+  function renderMinimaxAccount(label, providers, color, grouped = false) {
+    const [lead, ...rest] = providers;
+    const leadPolicy = limitAccountRowPolicy('minimax', lead, color, { grouped, sharedFamily: null });
+    const row = renderLimitProviderRow('minimax', label, lead, color, {
+      accountRow: grouped, accountLabel: label, ...leadPolicy.options
+    });
+    if (rest.some((provider) => provider.stale)) row.classList.add('stale');
+    if (rest.length) {
+      const list = document.createElement('div');
+      list.className = 'limit-account-list';
+      const windows = [...row.children].find((node) => node.classList.contains('limit-windows'));
+      if (windows) {
+        const leadLane = document.createElement('div');
+        leadLane.className = 'limit-row limit-account-row';
+        windows.remove();
+        leadLane.append(windows);
+        list.append(leadLane);
+      }
+      for (const provider of rest) {
+        const policy = limitAccountRowPolicy('minimax', provider, color, { grouped: true, sharedFamily: null });
+        list.append(renderLimitProviderRow('minimax', '', provider, policy.color, {
+          accountRow: true,
+          ...policy.options
+        }));
+      }
+      row.append(list);
+    }
+    return row;
+  }
+
   // A provider's several accounts, as the page's group header plus one row each.
   // No options: what the header wears and what each row says is the provider's
   // policy above, so a second surface cannot render the same group differently by
   // passing a different set.
   function renderLimitProviderGroup(providerId, label, providers, color) {
     if (providerId === 'mimo') return renderMimoProviderGroup(label, providers, color);
-    if (providerId === 'minimax' && minimaxSameAccount(providers)) {
-      // The first lane wears the provider heading, so its Updated line stays in
-      // that heading. Both lanes are account rows, so the shared separator sits
-      // between them.
-      const [lead, ...rest] = providers;
-      const row = renderLimitProviderRow(providerId, label, lead, color);
-      if (rest.some((provider) => provider.stale)) row.classList.add('stale');
-      if (rest.length) {
-        const list = document.createElement('div');
-        list.className = 'limit-account-list';
-        const windows = [...row.children].find((node) => node.classList.contains('limit-windows'));
-        if (windows) {
-          const leadLane = document.createElement('div');
-          leadLane.className = 'limit-row limit-account-row';
-          windows.remove();
-          leadLane.append(windows);
-          list.append(leadLane);
-        }
-        for (const provider of rest) {
-          const policy = limitAccountRowPolicy(providerId, provider, color, { grouped: true, sharedFamily: null });
-          list.append(renderLimitProviderRow(providerId, '', provider, policy.color, {
-            accountRow: true,
-            ...policy.options
-          }));
-        }
-        row.append(list);
+    if (providerId === 'minimax') {
+      const groups = minimaxAccountGroups(providers);
+      if (groups.length === 1 && providers.length > 1) return renderMinimaxAccount(label, providers, color);
+      if (groups.some(group => group.length > 1)) {
+        const representatives = groups.map(group => group[0]);
+        const { row, list } = renderLimitProviderGroupFrame(providerId, label, providers, color, { count: groups.length });
+        groups.forEach((group, index) => list.append(renderMinimaxAccount(
+          limitAccountDefaultTitle(representatives[index], index, representatives), group, color, true
+        )));
+        return row;
       }
-      return row;
     }
     const policy = LIMIT_GROUP_POLICIES[providerId] || (() => ({}));
     const { markId, sharedFamily, forecastOnGroup } = policy(providers);

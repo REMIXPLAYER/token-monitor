@@ -25,6 +25,7 @@ const {
 const emptyHome = fs.mkdtempSync(path.join(os.tmpdir(), 'minimax-empty-home-'));
 test.after(() => fs.rmSync(emptyHome, { recursive: true, force: true }));
 const fetchMinimaxLimits = (options, deps) => fetchMinimaxLimitsWithDeps(options, { env: {}, homeDir: emptyHome, ...(deps || {}) });
+const { hashKey } = require('../../src/shared/hashKey');
 const { createLimitsRuntime } = require('../../src/shared/limits/runtime');
 
 const CN_REMAINS_URLS = new Set([MINIMAX_TOKEN_PLAN_REMAINS_URL_CN, MINIMAX_REMAINS_URL_CN]);
@@ -1364,10 +1365,10 @@ test('MiniMax profiles isolate billing, region and refresh while preserving lega
     return okResponse(url.includes('query_balance') ? { available_amount: 7 } : windowsBody);
   } };
   const rows = await fetchMinimaxLimits(options, deps);
-  const wallet = rows.find(row => row.accountName === 'wallet');
+  const wallet = rows.find(row => row.accountKey === hashKey('minimax', 'wallet'));
   assert.equal(wallet.region, 'en');
   assert.equal(wallet.windows[0].currency, 'USD');
-  assert.equal(rows.find(row => row.accountName === 'default').region, 'cn');
+  assert.equal(rows.find(row => row.accountKey === hashKey('minimax', 'old')).region, 'cn');
   assert.equal(rows.filter(row => row.source === 'api').length, 2);
   requests.length = 0;
   const scoped = await fetchMinimaxLimits({ ...options, previousLimits: { providers: rows },
@@ -1405,18 +1406,22 @@ test('MiniMax profiles collect Code once and never let a rejected key invalidate
   const deps = codeDeps(fixture, async (url, init) => {
     if (url === MINIMAX_CODE_MEMBERSHIP_URL_CN) return okResponse(membershipBody({ has_token_plan: false }));
     if (url.endsWith('/account/query_balance')) return init.headers.Authorization === 'Bearer bad' ? unauthorized() : okResponse({ available_amount: 8 });
-    if (new URL(url).searchParams.has('GroupId')) return okResponse({ base_resp: { status_code: 2062 } });
+    if (new URL(url).searchParams.has('GroupId')) return okResponse({ base_resp: { status_code: init.headers.Authorization === 'Bearer good' ? 2062 : 1004 } });
     return okResponse({});
   });
   const rows = await fetchMinimaxLimits({ minimaxApiProfiles: {
+    other: { apiKey: 'other', billingMode: 'api', apiRegion: 'cn' },
     bad: { apiKey: 'bad', billingMode: 'api', apiRegion: 'cn' },
     good: { apiKey: 'good', billingMode: 'api', apiRegion: 'cn' }
   } }, deps);
-  assert.equal(rows.find(row => row.accountName === 'bad').status, 'unauthorized');
-  assert.equal(rows.find(row => row.accountName === 'good').windows[0].remaining, 8);
+  assert.equal(rows.find(row => row.accountKey === hashKey('minimax', 'bad')).status, 'unauthorized');
+  assert.equal(rows.find(row => row.accountKey === hashKey('minimax', 'good')).windows[0].remaining, 8);
   assert.equal(rows.find(row => row.source === 'oauth').windows[0].remaining, 4624);
   assert.equal(deps.requests.filter(url => url === MINIMAX_CODE_MEMBERSHIP_URL_CN).length, 1);
-  assert.ok(rows.every(row => !row.relatedAccountKey));
+  const oauth = rows.find(row => row.source === 'oauth');
+  assert.equal(rows.find(row => row.accountKey === hashKey('minimax', 'good')).relatedAccountKey, oauth.accountKey);
+  assert.equal(rows.find(row => row.accountKey === hashKey('minimax', 'other')).relatedAccountKey, undefined);
+  assert.equal(rows.find(row => row.accountKey === hashKey('minimax', 'other')).status, 'ok');
   const single = await fetchMinimaxLimits({ minimaxBillingMode: 'token-plan', minimaxApiRegion: 'intl',
     minimaxApiProfiles: { good: { apiKey: 'good', billingMode: 'api', apiRegion: 'cn' } }
   }, deps);
