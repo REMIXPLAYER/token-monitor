@@ -20169,8 +20169,8 @@ function setupCursorAccountUI() {
         setCopilotAccountExpanded(true);
         renderCopilotProfiles();
         await refreshStats({ force: true });
-      } catch (_) {
-        setCopilotError(t('settings.common.unavailable'));
+      } catch (error) {
+        setCopilotError(t('settings.copilot.saveFailed', { message: error?.message || '' }));
       } finally {
         button.disabled = false;
         button.textContent = label;

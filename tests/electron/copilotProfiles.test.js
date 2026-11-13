@@ -19,7 +19,6 @@ const USAGE = {
 
 const IDENTITIES = {
   'gho-a': { login: 'octocat', id: 42 },
-  'gho-b': { login: 'hubot', id: 7 },
   'gho-noid': { id: 99 }
 };
 
