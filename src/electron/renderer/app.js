@@ -17449,28 +17449,22 @@ function copilotProfileStatusText(provider, options = {}) {
   if (status === 'checking') return t('settings.common.checking');
   if (status === 'invalid') return t('settings.copilot.statusInvalid');
   if (status !== 'linked') return t('settings.common.unavailable');
-  const windows = provider.windows || [];
-  const quota = windows.find((window) => window?.label === 'Premium')
-    || windows.find((window) => Number.isFinite(window?.remainingPercent));
+  const quota = (provider.windows || []).find((window) => (
+    window?.showMeter !== false && optionalFiniteNumber(window?.remainingPercent) !== null
+  ));
   const remaining = optionalFiniteNumber(quota?.remainingPercent);
   return remaining === null ? '✓' : `✓ ${Math.round(remaining)}%`;
 }
 
 // Rows only; the pill is rendered by renderCopilotStatus with the auto lane counted.
 function updateCopilotProfileRows() {
-  const enabled = limitProviderEnabled('copilot');
-  const providers = localProviderStatuses('copilot');
-  const byName = new Map(providers.map((provider) => [String(provider.accountName || ''), provider]));
-  for (const info of document.querySelectorAll(
-    '[data-managed-profile-provider="copilot"][data-managed-profile-name]'
-  )) {
-    const name = info.dataset.managedProfileName || '';
-    const profile = state.settings?.copilotProfiles?.[name];
-    info.textContent = copilotProfileStatusText(byName.get(name), {
-      providerEnabled: enabled,
-      profileEnabled: profile?.enabled !== false
-    });
-  }
+  updateNamedApiProfilesStatus({
+    providerId: 'copilot',
+    profileSettingsKey: 'copilotProfiles',
+    profileCountStateKey: 'copilotProfileCount',
+    statusText: copilotProfileStatusText,
+    renderPill: false
+  });
 }
 
 function renderCopilotProfiles() {
@@ -18463,7 +18457,8 @@ function updateNamedApiProfilesStatus({
   providerId,
   profileSettingsKey,
   profileCountStateKey,
-  statusText
+  statusText,
+  renderPill = true
 }) {
   const providerEnabled = limitProviderEnabled(providerId);
   const providers = localProviderStatuses(providerId);
@@ -18483,6 +18478,7 @@ function updateNamedApiProfilesStatus({
     `[data-managed-profile-provider="${providerId}"][data-managed-profile-environment]`
   );
   if (envInfo) envInfo.textContent = statusText(byName.get('environment'), { providerEnabled });
+  if (!renderPill) return;
   const statusEl = document.getElementById(`${providerId}Status`);
   if (!statusEl) return;
   const total = state[profileCountStateKey] || 0;
