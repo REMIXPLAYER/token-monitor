@@ -19,10 +19,18 @@ function createCopilotProfiles({ getSettings, saveSettings, probeDeps, changed, 
       || '';
   }
 
-  function notify(login, reason, options = {}) {
+  function commit(next, login, reason, options = {}) {
+    const settings = getSettings();
+    settings.copilotProfiles = next;
+    try {
+      saveSettings({ throwOnError: true });
+    } catch (_) {
+      return { ok: false, errorCode: 'credentialStorageUnavailable' };
+    }
     try {
       changed?.(login, reason, options);
     } catch (_) {}
+    return { ok: true };
   }
 
   async function saveProfile(rawToken) {
@@ -54,16 +62,7 @@ function createCopilotProfiles({ getSettings, saveSettings, probeDeps, changed, 
 
     const next = profiles();
     next[login] = { apiToken: token, enabled: true };
-    const settings = getSettings();
-    settings.copilotProfiles = next;
-    try {
-      saveSettings({ throwOnError: true });
-    } catch (_) {
-      return { ok: false, errorCode: 'credentialStorageUnavailable' };
-    }
-
-    notify(login, 'profile-save');
-    return { ok: true, login };
+    return commit(next, login, 'profile-save');
   }
 
   function removeProfile(rawLogin) {
@@ -71,15 +70,7 @@ function createCopilotProfiles({ getSettings, saveSettings, probeDeps, changed, 
     const next = profiles();
     if (!Object.hasOwn(next, login)) return { ok: false, errorCode: 'notFound' };
     delete next[login];
-    const settings = getSettings();
-    settings.copilotProfiles = next;
-    try {
-      saveSettings({ throwOnError: true });
-    } catch (_) {
-      return { ok: false, errorCode: 'credentialStorageUnavailable' };
-    }
-    notify(login, 'profile-delete', { clear: true, refresh: false });
-    return { ok: true };
+    return commit(next, login, 'profile-delete', { clear: true, refresh: false });
   }
 
   function setProfileEnabled(rawLogin, enabled) {
@@ -88,15 +79,7 @@ function createCopilotProfiles({ getSettings, saveSettings, probeDeps, changed, 
     const next = profiles();
     if (!Object.hasOwn(next, login)) return { ok: false, errorCode: 'notFound' };
     next[login] = { ...next[login], enabled };
-    const settings = getSettings();
-    settings.copilotProfiles = next;
-    try {
-      saveSettings({ throwOnError: true });
-    } catch (_) {
-      return { ok: false, errorCode: 'credentialStorageUnavailable' };
-    }
-    notify(login, 'profile-state', { clear: !enabled, refresh: enabled });
-    return { ok: true };
+    return commit(next, login, 'profile-state', { clear: !enabled, refresh: enabled });
   }
 
   return { saveProfile, removeProfile, setProfileEnabled };

@@ -9988,7 +9988,7 @@ app.whenReady().then(() => {
   ipcMain.handle('codex:refreshAccountLimits', async (_event, id) => refreshCodexManagedAccountLimits(id));
   const copilotProfiles = createCopilotProfiles({
     getSettings: () => settings,
-    saveSettings: (options) => saveSettings(options),
+    saveSettings,
     probeDeps: () => electronProviderDeps({ env: {}, signal: AbortSignal.timeout(15_000) }),
     changed: (login, reason, options = {}) => {
       deviceRuntimeHandle?.reconfigureLimits(electronLimitsConfig());
@@ -9998,20 +9998,12 @@ app.whenReady().then(() => {
   });
   ipcMain.handle('copilot:getProfiles', () => ({
     profiles: redactCopilotProfilesForRenderer(settings.copilotProfiles || {}),
+    // The env token owns the auto lane, never a row in the manual list.
     hasEnvVar: false
   }));
-  ipcMain.handle('copilot:saveProfile', async (_event, token) => {
-    try { return await copilotProfiles.saveProfile(token); }
-    catch (_) { return { ok: false, errorCode: 'credentialStorageUnavailable' }; }
-  });
-  ipcMain.handle('copilot:deleteProfile', (_event, login) => {
-    try { return copilotProfiles.removeProfile(login); }
-    catch (_) { return { ok: false, errorCode: 'credentialStorageUnavailable' }; }
-  });
-  ipcMain.handle('copilot:setProfileEnabled', (_event, login, enabled) => {
-    try { return copilotProfiles.setProfileEnabled(login, enabled); }
-    catch (_) { return { ok: false, errorCode: 'credentialStorageUnavailable' }; }
-  });
+  ipcMain.handle('copilot:saveProfile', (_event, token) => copilotProfiles.saveProfile(token));
+  ipcMain.handle('copilot:deleteProfile', (_event, login) => copilotProfiles.removeProfile(login));
+  ipcMain.handle('copilot:setProfileEnabled', (_event, login, enabled) => copilotProfiles.setProfileEnabled(login, enabled));
   ipcMain.handle('copilot:signIn', async (event, request = {}) => {
     if (copilotLoginController) return { ok: false, error: 'A GitHub Copilot sign-in is already in progress.', flowId: copilotLoginFlowId };
     const controller = new AbortController();
