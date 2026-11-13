@@ -679,7 +679,11 @@ function providerCollapseKey(provider) {
       // identical on every platform. Two keys mean two accounts, and collapsing
       // by provider name alone would let one device's row silently replace the
       // other's.
-      || provider.provider === 'alibaba')
+      || provider.provider === 'alibaba'
+      // Copilot's accountKey hashes the GitHub login. It is the same on every
+      // platform, while two profiles are two accounts; the provider name alone
+      // would collapse them into one.
+      || provider.provider === 'copilot')
     && isConfiguredProvider(provider)
   ) {
     return providerAggregateKey(provider);

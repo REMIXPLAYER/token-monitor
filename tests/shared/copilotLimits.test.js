@@ -16,6 +16,7 @@ const {
   fetchCopilotLimits
 } = require('../../src/shared/providers/copilot/limits');
 const { parseLimitProviders } = require('../../src/shared/limits/collector');
+const { hashKey } = require('../../src/shared/hashKey');
 
 test('parseLimitProviders includes Copilot in the default provider set', () => {
   assert.ok(parseLimitProviders().includes('copilot'));
@@ -259,4 +260,70 @@ test('fetchCopilotLimits bounds a body that stalls after the headers', { timeout
     }
   );
   assert.equal(provider.status, 'unavailable');
+});
+
+function copilotUsageFixture() {
+  return {
+    copilot_plan: 'pro',
+    quota_reset_date: '2026-07-01',
+    quota_snapshots: {
+      premium_interactions: {
+        entitlement: 100,
+        remaining: 90,
+        percent_remaining: 90,
+        quota_id: 'premium_interactions'
+      }
+    }
+  };
+}
+
+function copilotFetchFor(loginsByToken, overrides = {}) {
+  return async (url, init) => {
+    const token = String(init.headers.Authorization || '').replace(/^token\s+/, '');
+    if (String(url).includes('/copilot_internal/user')) {
+      if (overrides.usageStatus) return { ok: false, status: overrides.usageStatus, json: async () => ({}) };
+      return { ok: true, status: 200, json: async () => copilotUsageFixture() };
+    }
+    if (String(url) === 'https://api.github.com/user') {
+      const login = loginsByToken[token];
+      if (!login) return { ok: false, status: 401, json: async () => ({}) };
+      return { ok: true, status: 200, json: async () => ({ login, id: login.length }) };
+    }
+    throw new Error(`unexpected fetch url: ${url}`);
+  };
+}
+
+test('fetchCopilotLimits composes the auto and manual lanes and scopes a refresh', async () => {
+  const providers = await fetchCopilotLimits(
+    {
+      copilotProfiles: {
+        hubot: { apiToken: 'gho-b' },
+        // A manual token already owned by the env auto lane must not add a row.
+        octocat: { apiToken: 'gho-env' }
+      }
+    },
+    {
+      env: { COPILOT_API_TOKEN: 'gho-env' },
+      now: () => Date.parse('2026-06-25T00:00:00.000Z'),
+      fetch: copilotFetchFor({ 'gho-env': 'env-user', 'gho-b': 'hubot' })
+    }
+  );
+  assert.deepEqual(providers.map((provider) => provider.accountName).sort(), ['env-user', 'hubot']);
+  assert.deepEqual(
+    providers.map((provider) => provider.accountKey).sort(),
+    [hashKey('copilot', 'env-user'), hashKey('copilot', 'hubot')].sort()
+  );
+
+  const scoped = await fetchCopilotLimits(
+    {
+      copilotProfiles: { octocat: { apiToken: 'gho-a' }, hubot: { apiToken: 'gho-b' } },
+      limitRefreshScope: { provider: 'copilot', accountKey: hashKey('copilot', 'hubot') }
+    },
+    {
+      env: {},
+      now: () => Date.parse('2026-06-25T00:00:00.000Z'),
+      fetch: copilotFetchFor({ 'gho-a': 'octocat', 'gho-b': 'hubot' })
+    }
+  );
+  assert.equal(scoped.accountName, 'hubot');
 });

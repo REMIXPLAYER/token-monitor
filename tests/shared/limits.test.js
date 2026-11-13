@@ -2129,3 +2129,22 @@ test('MiniMax sync retains stale accounts independently of refreshed sources and
     }
   }
 });
+
+test('aggregateLimits preserves distinct Copilot accounts', () => {
+  const providers = ['work', 'personal'].map((accountName, index) => ({
+    provider: 'copilot',
+    accountKey: hashKey('copilot', accountName),
+    accountName,
+    status: 'ok',
+    source: 'api',
+    updatedAt: `2026-07-23T10:0${index}:00.000Z`
+  }));
+  const aggregate = aggregateLimits([{
+    deviceId: 'macbook',
+    limits: { updatedAt: '2026-07-23T10:02:00.000Z', providers }
+  }], 0, Date.parse('2026-07-23T10:03:00.000Z'));
+  assert.deepEqual(
+    aggregate.providers.filter((provider) => provider.provider === 'copilot').map((provider) => provider.accountName).sort(),
+    ['personal', 'work']
+  );
+});

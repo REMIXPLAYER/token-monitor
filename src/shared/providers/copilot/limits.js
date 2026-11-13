@@ -294,31 +294,50 @@ function providerStatusFromError(error) {
   return 'unavailable';
 }
 
-async function fetchCopilotLimits(options = {}, deps = {}) {
+function configuredCopilotAccounts(options = {}, deps = {}) {
   const env = deps.env || process.env;
-  const nowMs = (deps.now || Date.now)();
-  const updatedAt = new Date(nowMs).toISOString();
-  const token = copilotToken(env, options);
-  const enterpriseHost = options.copilotEnterpriseHost || env.COPILOT_ENTERPRISE_HOST || env.GITHUB_ENTERPRISE_HOST || '';
-  const requestDeps = { ...deps, copilotEnterpriseHost: enterpriseHost };
-
-  if (!token) {
-    return normalizeLimitProvider({
-      provider: 'copilot',
-      source: 'api',
-      status: 'notConfigured',
-      updatedAt,
-      windows: []
-    });
+  const accounts = [];
+  const seenTokens = new Set();
+  const autoToken = copilotToken(env, options);
+  if (autoToken) {
+    accounts.push({ token: autoToken, source: 'auto' });
+    seenTokens.add(autoToken);
   }
+  for (const [login, profile] of Object.entries(options.copilotProfiles || {})) {
+    const name = String(login || '').trim();
+    const token = cleanSecret(profile?.apiToken);
+    if (!name || !token || profile?.enabled === false || seenTokens.has(token)) continue;
+    seenTokens.add(token);
+    accounts.push({ name, token, source: 'profile' });
+  }
+  return accounts;
+}
 
+function copilotScopeAccounts(accounts, scope) {
+  const profiles = accounts.filter((account) => account.source === 'profile');
+  const accountKey = String(scope.accountKey || '').trim();
+  if (accountKey) {
+    const matched = profiles.filter((account) => hashKey('copilot', account.name) === accountKey);
+    // The auto lane's key is only known after its identity request, so an
+    // unmatched key is treated as that lane. A manual account's key is known
+    // up front and must match exactly.
+    return matched.length > 0 ? matched : accounts.filter((account) => account.source === 'auto');
+  }
+  const accountName = String(scope.accountName || scope.accountLabel || '').trim();
+  if (accountName) return profiles.filter((account) => account.name === accountName);
+  return accounts;
+}
+
+async function fetchCopilotAccount(account, requestDeps, updatedAt) {
+  const { token, name = '', source } = account;
+  const keySeed = source === 'profile' ? name : '';
   try {
     const [usage, identity] = await Promise.all([
       fetchCopilotUsage(token, requestDeps),
       fetchGitHubIdentity(token, requestDeps).catch(() => ({ login: '', id: null }))
     ]);
-    const login = String(identity.login || '').trim();
-    const accountSeed = login || (identity.id != null ? String(identity.id) : '');
+    const login = String(name || identity.login || '').trim();
+    const accountSeed = keySeed || login || (identity.id != null ? String(identity.id) : '');
     return mapCopilotUsageToProvider(usage, {
       accountKey: hashKey('copilot', accountSeed || token.slice(0, 8)),
       accountLabel: displayPlanLabel(usage.copilotPlan),
@@ -328,15 +347,63 @@ async function fetchCopilotLimits(options = {}, deps = {}) {
       source: 'api'
     });
   } catch (error) {
+    const accountSeed = keySeed || token.slice(0, 8);
     return normalizeLimitProvider({
       provider: 'copilot',
-      accountKey: hashKey('copilot', token.slice(0, 8)),
+      accountKey: hashKey('copilot', accountSeed),
+      // A manual account's error row still names its account, so a scoped
+      // delete/disable can find the row it owns.
+      accountName: name || '',
       source: 'api',
       status: providerStatusFromError(error),
       updatedAt,
       windows: []
     });
   }
+}
+
+async function fetchCopilotLimits(options = {}, deps = {}) {
+  const env = deps.env || process.env;
+  const nowMs = (deps.now || Date.now)();
+  const updatedAt = new Date(nowMs).toISOString();
+  const enterpriseHost = options.copilotEnterpriseHost || env.COPILOT_ENTERPRISE_HOST || env.GITHUB_ENTERPRISE_HOST || '';
+  const requestDeps = { ...deps, copilotEnterpriseHost: enterpriseHost };
+
+  const notConfigured = () => normalizeLimitProvider({
+    provider: 'copilot',
+    source: 'api',
+    status: 'notConfigured',
+    updatedAt,
+    windows: []
+  });
+
+  if (deps.probe) {
+    const token = copilotToken({}, options);
+    if (!token) return notConfigured();
+    return fetchCopilotAccount({ token, source: 'auto' }, requestDeps, updatedAt);
+  }
+
+  const accounts = configuredCopilotAccounts(options, deps);
+  if (!accounts.length) return notConfigured();
+
+  const scope = options.limitRefreshScope?.provider === 'copilot' ? options.limitRefreshScope : null;
+  const selected = scope ? copilotScopeAccounts(accounts, scope) : accounts;
+  if (!selected.length) return notConfigured();
+
+  const rows = (await Promise.all(
+    selected.map((account) => fetchCopilotAccount(account, requestDeps, updatedAt))
+  )).filter(Boolean);
+
+  const seen = new Set();
+  const deduped = [];
+  for (const row of rows) {
+    if (row.accountKey && seen.has(row.accountKey)) continue;
+    if (row.accountKey) seen.add(row.accountKey);
+    deduped.push(row);
+  }
+  // Keep the historical single-object return when one account answers, so
+  // existing callers and tests do not need to treat one row as an array.
+  return deduped.length === 1 ? deduped[0] : deduped;
 }
 
 module.exports = {
