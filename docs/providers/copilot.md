@@ -14,7 +14,7 @@ Copilot has two independent credentials lanes:
 - The **auto lane**: one GitHub device-flow token stored as `copilotApiToken`, or the environment fallback when no token is stored. This lane is a single account and its sign-in flow is unchanged.
 - The **manual lane**: user-added tokens in `copilotProfiles`, keyed by the GitHub login the token resolves to. Each entry is `{ apiToken, enabled }`.
 
-The manual lane follows the named-profile pattern shared with OpenRouter and ThirdParty. A profile's key is the server-issued login; it is also the account's display name and its `accountName` refresh scope. Profiles are not renamed, because the server owns that identity while the key is the map key and the scoped-refresh address.
+The manual lane follows the named-profile pattern shared with OpenRouter and ThirdParty. A profile's key is the server-issued login; it is also the account's display name. The key is hashed into the portable `accountKey`, which is the row identity and the scoped-refresh address. Profiles are not renamed, because the server owns that identity while the key is the map key.
 
 `accountKey` hashes the GitHub login. It is the same on every device, so the same account merges across devices while two logins remain two rows.
 
@@ -30,7 +30,7 @@ The global `copilotEnterpriseHost` setting stays global: identity, quota and dev
 
 ## Refresh and invalidation
 
-Adding, removing or enabling a manual profile invalidates only that `accountName`. The provider declares `accountRefresh: true`, so a quota row's refresh button probes only the account it names: a manual profile matches by its `accountKey`, while an unmatched key is treated as the auto lane whose key is only known after `/user`. Sign-in and sign-out stay provider-wide.
+Adding, removing or enabling a manual profile invalidates only that account's keyed identity. The provider declares `accountRefresh: true`, so a quota row's refresh button probes only the account it names: a manual profile matches by its `accountKey`, while an unmatched key is treated as the auto lane whose key is only known after `/user`. Sign-in and sign-out stay provider-wide.
 
 ## Known gap
 
