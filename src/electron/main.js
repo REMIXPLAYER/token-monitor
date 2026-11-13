@@ -17,6 +17,7 @@ app.commandLine.appendSwitch('process-per-site');
 const { createRetainedWindow, captureRetainedWindowState, restoreRetainedWindowState } = require('./retainedWindow');
 const { autoUpdater } = require('electron-updater');
 const { defaultDeviceId, generateHubSecret, lanIpv4Addresses, loadDotEnv, pidFilePath, readJson, sharedDataDir } = require('../shared/config');
+const { hashKey } = require('../shared/hashKey');
 const {
   CredentialStore,
   credentialSettingsForRenderer,
@@ -9992,8 +9993,13 @@ app.whenReady().then(() => {
     probeDeps: () => electronProviderDeps({ env: {}, signal: AbortSignal.timeout(15_000) }),
     changed: (login, reason, options = {}) => {
       deviceRuntimeHandle?.reconfigureLimits(electronLimitsConfig());
-      void queueLimitInvalidation({ provider: 'copilot', accountName: login }, reason, options)
-        .catch(() => {});
+      // Runtime commits a scoped probe under the scope's identity, which must
+      // be the row's portable accountKey, not its display name.
+      void queueLimitInvalidation({
+        provider: 'copilot',
+        accountKey: hashKey('copilot', login),
+        accountName: login
+      }, reason, options).catch(() => {});
     }
   });
   ipcMain.handle('copilot:getProfiles', () => ({
