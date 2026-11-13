@@ -17435,23 +17435,26 @@ function copilotAccountStatusText(provider, configured, source, enabled = true) 
 }
 
 function copilotProfileErrorText(result) {
-  if (result?.errorCode === 'missingToken') return t('settings.copilot.missingToken');
+  if (result?.errorCode === 'missingToken') return t('settings.common.credentialRequired');
   if (result?.errorCode === 'alreadyConnected') return t('settings.copilot.alreadyConnected');
   if (result?.errorCode === 'invalidToken') return t('settings.copilot.statusInvalid');
   if (result?.errorCode === 'invalidIdentity') return t('settings.copilot.invalidIdentity');
-  if (result?.errorCode === 'notFound') return t('settings.copilot.notFound');
-  if (result?.errorCode === 'unavailable') return t('settings.copilot.statusUnavailable');
-  return t('settings.copilot.saveFailedShort');
+  if (result?.errorCode === 'unavailable') return t('settings.common.unavailable');
+  return t('settings.common.unavailable');
 }
 
 function copilotProfileStatusText(provider, options = {}) {
   const status = limitProviderPresentationApi.namedApiProfileStatus(provider, options);
   if (status === 'disabled') return t('settings.profiles.disabled');
   if (status === 'hidden') return '';
-  if (status === 'checking') return t('settings.copilot.checking');
+  if (status === 'checking') return t('settings.common.checking');
   if (status === 'invalid') return t('settings.copilot.statusInvalid');
-  if (status !== 'linked') return t('settings.copilot.statusUnavailable');
-  return '✓';
+  if (status !== 'linked') return t('settings.common.unavailable');
+  const windows = provider.windows || [];
+  const quota = windows.find((window) => window?.label === 'Premium')
+    || windows.find((window) => Number.isFinite(window?.remainingPercent));
+  const remaining = optionalFiniteNumber(quota?.remainingPercent);
+  return remaining === null ? '✓' : `✓ ${Math.round(remaining)}%`;
 }
 
 // Only the rows' own status text. The pill is owned by renderCopilotStatus,
@@ -17481,7 +17484,6 @@ function renderCopilotProfiles() {
   renderNamedApiProfiles({
     providerId: 'copilot',
     profileSettingsKey: 'copilotProfiles',
-    envConfiguredKey: 'copilotEnvConfigured',
     profileCountStateKey: 'copilotProfileCount',
     api: window.tokenMonitor.copilot,
     canRename: false,
@@ -18743,7 +18745,7 @@ function renderNamedApiProfiles(config) {
     if (!isCurrent() || !isSettingsSurfaceVisible() || document.getElementById(`${providerId}ProfileList`) !== listEl) return;
     listEl.replaceChildren();
     state.settings[profileSettingsKey] = profiles;
-    state.settings[envConfiguredKey] = Boolean(hasEnvVar);
+    if (envConfiguredKey) state.settings[envConfiguredKey] = Boolean(hasEnvVar);
     const entries = Object.entries(profiles);
     state[profileCountStateKey] = entries.length + (hasEnvVar ? 1 : 0);
     if (state[profileCountStateKey] === 0) {
@@ -20149,7 +20151,7 @@ function setupCursorAccountUI() {
       setCopilotError('');
       if (!String(input.value || '').trim()) {
         setCopilotManualExpanded(true);
-        setCopilotError(t('settings.copilot.missingToken'));
+        setCopilotError(t('settings.common.credentialRequired'));
         return;
       }
       if (button.disabled) return;
@@ -20168,7 +20170,7 @@ function setupCursorAccountUI() {
         renderCopilotProfiles();
         await refreshStats({ force: true });
       } catch (_) {
-        setCopilotError(t('settings.copilot.saveFailedShort'));
+        setCopilotError(t('settings.common.unavailable'));
       } finally {
         button.disabled = false;
         button.textContent = label;
