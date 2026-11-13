@@ -17439,7 +17439,6 @@ function copilotProfileErrorText(result) {
   if (result?.errorCode === 'alreadyConnected') return t('settings.copilot.alreadyConnected');
   if (result?.errorCode === 'invalidToken') return t('settings.copilot.statusInvalid');
   if (result?.errorCode === 'invalidIdentity') return t('settings.copilot.invalidIdentity');
-  if (result?.errorCode === 'unavailable') return t('settings.common.unavailable');
   return t('settings.common.unavailable');
 }
 
@@ -17457,8 +17456,7 @@ function copilotProfileStatusText(provider, options = {}) {
   return remaining === null ? '✓' : `✓ ${Math.round(remaining)}%`;
 }
 
-// Only the rows' own status text. The pill is owned by renderCopilotStatus,
-// which also counts the auto lane.
+// Rows only; the pill is rendered by renderCopilotStatus with the auto lane counted.
 function updateCopilotProfileRows() {
   const enabled = limitProviderEnabled('copilot');
   const providers = localProviderStatuses('copilot');
@@ -17475,11 +17473,6 @@ function updateCopilotProfileRows() {
   }
 }
 
-function refreshCopilotProfileStatus() {
-  updateCopilotProfileRows();
-  renderCopilotStatus();
-}
-
 function renderCopilotProfiles() {
   renderNamedApiProfiles({
     providerId: 'copilot',
@@ -17488,7 +17481,10 @@ function renderCopilotProfiles() {
     api: window.tokenMonitor.copilot,
     canRename: false,
     rerender: renderCopilotProfiles,
-    updateStatus: refreshCopilotProfileStatus,
+    updateStatus: () => {
+      updateCopilotProfileRows();
+      renderCopilotStatus();
+    },
     errorText: copilotProfileErrorText
   });
 }

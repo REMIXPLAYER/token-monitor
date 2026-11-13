@@ -318,9 +318,8 @@ function copilotScopeAccounts(accounts, scope) {
   const accountKey = String(scope.accountKey || '').trim();
   if (accountKey) {
     const matched = profiles.filter((account) => hashKey('copilot', account.name) === accountKey);
-    // The auto lane's key is only known after its identity request, so an
-    // unmatched key is treated as that lane. A manual account's key is known
-    // up front and must match exactly.
+    // An unmatched key is the auto lane, whose key is only known after /user;
+    // manual keys are known up front and must match exactly.
     return matched.length > 0 ? matched : accounts.filter((account) => account.source === 'auto');
   }
   const accountName = String(scope.accountName || scope.accountLabel || '').trim();
@@ -351,8 +350,7 @@ async function fetchCopilotAccount(account, requestDeps, updatedAt) {
     return normalizeLimitProvider({
       provider: 'copilot',
       accountKey: hashKey('copilot', accountSeed),
-      // A manual account's error row still names its account, so a scoped
-      // delete/disable can find the row it owns.
+      // Keep the login on failure so the row is still labelled.
       accountName: name || '',
       source: 'api',
       status: providerStatusFromError(error),

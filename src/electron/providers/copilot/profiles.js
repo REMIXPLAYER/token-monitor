@@ -1,7 +1,6 @@
 'use strict';
 
-// Manual GitHub Copilot profiles. The device-flow token stays the provider's
-// auto lane; this service owns only the user-added tokens and their metadata.
+// Owns the manual-token lane; the device-flow token stays the provider's auto lane.
 
 const limits = require('../../../shared/providers/copilot/limits');
 
