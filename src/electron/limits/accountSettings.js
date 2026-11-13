@@ -81,6 +81,15 @@ function redactOpenRouterProfilesForRenderer(profiles) {
   return out;
 }
 
+function redactCopilotProfilesForRenderer(profiles) {
+  if (!profiles || typeof profiles !== 'object') return profiles;
+  const out = Object.create(null);
+  for (const [login, profile] of Object.entries(profiles)) {
+    out[login] = { enabled: profile?.enabled !== false, apiToken: profile?.apiToken ? 'set' : '' };
+  }
+  return out;
+}
+
 function redactThirdPartyProfilesForRenderer(profiles) {
   const thirdPartyLimits = limitProviderEntry('thirdparty').limits;
   if (!profiles || typeof profiles !== 'object') return profiles;
@@ -116,6 +125,7 @@ function redactThirdPartyProfilesForRenderer(profiles) {
 const PROFILE_REDACTORS = Object.freeze({
   opencode: redactOpencodeProfilesForRenderer,
   openrouter: redactOpenRouterProfilesForRenderer,
+  copilot: redactCopilotProfilesForRenderer,
   thirdparty: redactThirdPartyProfilesForRenderer
 });
 
@@ -364,6 +374,7 @@ module.exports = {
   limitsAccountConfig,
   normalizeAccountField,
   normalizeAccountPatch,
+  redactCopilotProfilesForRenderer,
   redactOpencodeProfilesForRenderer,
   redactOpenRouterProfilesForRenderer,
   redactThirdPartyProfilesForRenderer,
