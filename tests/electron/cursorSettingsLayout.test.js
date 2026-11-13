@@ -879,6 +879,7 @@ test('Copilot account panel provides GitHub sign-in plus manual token fallback',
   assert.match(details, /<button id="copilotCancelSignInButton" class="hidden" data-i18n="settings\.common\.cancel">/);
   assert.match(details, /<button id="copilotLogoutButton" class="hidden" data-i18n="settings\.copilot\.logout">/);
   assert.match(details, /<pre id="copilotLoginStatus" class="codex-login-output hidden" role="status" aria-live="polite"><\/pre>/);
+  assert.match(details, /<div id="copilotProfileList" class="opencode-profile-list"><\/div>/);
   assert.match(details, /<button id="copilotManualToggle"[\s\S]*aria-controls="copilotManualDetails"/);
   assert.match(details, /<div id="copilotManualDetails" class="opencode-add-details accordion-animated-container hidden">/);
   assert.match(details, /<input id="copilotApiTokenInput" type="password"[\s\S]*data-i18n-placeholder="settings\.copilot\.apiTokenPlaceholder"/);
@@ -898,12 +899,14 @@ test('Copilot account panel provides GitHub sign-in plus manual token fallback',
   assert.match(setupBody, /state\.copilotAuthorizeMessage = t\('settings\.copilot\.authorize'/);
   assert.match(setupBody, /\[state\.copilotAuthorizeMessage, t\('settings\.copilot\.polling'\)\]\.filter\(Boolean\)\.join\('\\n\\n'\)/);
   assert.match(setupBody, /setCopilotManualExpanded\(false\)/);
-  assert.match(setupBody, /saveSettings\(\{ copilotApiToken: input\.value \}\)/);
+  assert.match(setupBody, /window\.tokenMonitor\.copilot\.saveProfile\(input\.value\)/);
   assert.match(setupBody, /saveSettings\(\{ copilotApiToken: '' \}\)/);
 
   const renderBody = functionBody(app, 'renderCopilotStatus', 'renderOpenCodeProfiles');
   assert.match(renderBody, /cancelBtn\.classList\.toggle\('hidden', !state\.copilotSignInBusy \|\| !state\.copilotSignInCancelable \|\| linked\)/);
-  assert.match(renderBody, /refreshBtn\.classList\.toggle\('hidden', !configured \|\| \(state\.copilotSignInBusy && !linked\)\)/);
+  assert.match(renderBody, /refreshBtn\.classList\.toggle\('hidden', total === 0 \|\| \(state\.copilotSignInBusy && !linked\)\)/);
+  assert.match(renderBody, /manualCount > 0/);
+  assert.doesNotMatch(renderBody, /manualPanel\.classList\.toggle\('hidden'/);
   assert.match(renderBody, /accountShellApi\.render\(\{[\s\S]*?error: errorEl,\s*errorText: state\.copilotErrorMessage/);
   assert.doesNotMatch(renderBody, /errorEl\.textContent = '';/);
 
