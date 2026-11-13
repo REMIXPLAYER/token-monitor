@@ -198,12 +198,14 @@ const {
   limitAccountFormsForRenderer,
   normalizeAccountField,
   normalizeAccountPatch,
+  redactCopilotProfilesForRenderer,
   redactOpenRouterProfilesForRenderer,
   redactThirdPartyProfilesForRenderer,
   rendererOmittedAccountKeys
 } = require('./limits/accountSettings');
 const { createCredentialCommands } = require('./limits/credentialCommands');
 const { createMinimaxApiKeys } = require('./providers/minimax/apiKeys');
+const { createCopilotProfiles } = require('./providers/copilot/profiles');
 const { createClaudeManagedAccounts, claudeAccountChangeScope } = require('./providers/claude/managedAccounts');
 const { copilotLoginErrorMessage, isAllowedVerificationUrl, runCopilotDeviceFlowLogin } = require('../shared/providers/copilot/deviceFlow');
 const {
@@ -9984,6 +9986,32 @@ app.whenReady().then(() => {
   ipcMain.handle('codex:removeAccount', async (_event, id) => removeCodexManagedAccount(id));
   ipcMain.handle('codex:switchSystemAccount', async (_event, id) => switchCodexSystemAccount(id));
   ipcMain.handle('codex:refreshAccountLimits', async (_event, id) => refreshCodexManagedAccountLimits(id));
+  const copilotProfiles = createCopilotProfiles({
+    getSettings: () => settings,
+    saveSettings: (options) => saveSettings(options),
+    probeDeps: () => electronProviderDeps({ env: {}, signal: AbortSignal.timeout(15_000) }),
+    changed: (login, reason, options = {}) => {
+      deviceRuntimeHandle?.reconfigureLimits(electronLimitsConfig());
+      void queueLimitInvalidation({ provider: 'copilot', accountName: login }, reason, options)
+        .catch(() => {});
+    }
+  });
+  ipcMain.handle('copilot:getProfiles', () => ({
+    profiles: redactCopilotProfilesForRenderer(settings.copilotProfiles || {}),
+    hasEnvVar: false
+  }));
+  ipcMain.handle('copilot:saveProfile', async (_event, token) => {
+    try { return await copilotProfiles.saveProfile(token); }
+    catch (_) { return { ok: false, errorCode: 'credentialStorageUnavailable' }; }
+  });
+  ipcMain.handle('copilot:deleteProfile', (_event, login) => {
+    try { return copilotProfiles.removeProfile(login); }
+    catch (_) { return { ok: false, errorCode: 'credentialStorageUnavailable' }; }
+  });
+  ipcMain.handle('copilot:setProfileEnabled', (_event, login, enabled) => {
+    try { return copilotProfiles.setProfileEnabled(login, enabled); }
+    catch (_) { return { ok: false, errorCode: 'credentialStorageUnavailable' }; }
+  });
   ipcMain.handle('copilot:signIn', async (event, request = {}) => {
     if (copilotLoginController) return { ok: false, error: 'A GitHub Copilot sign-in is already in progress.', flowId: copilotLoginFlowId };
     const controller = new AbortController();

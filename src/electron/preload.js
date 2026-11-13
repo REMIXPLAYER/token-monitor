@@ -281,6 +281,10 @@ contextBridge.exposeInMainWorld('tokenMonitor', {
   copilot: {
     signIn: (options = {}) => ipcRenderer.invoke('copilot:signIn', options),
     cancelSignIn: (options = {}) => ipcRenderer.invoke('copilot:cancelSignIn', options),
+    getProfiles: () => ipcRenderer.invoke('copilot:getProfiles'),
+    saveProfile: (token) => ipcRenderer.invoke('copilot:saveProfile', token),
+    deleteProfile: (login) => ipcRenderer.invoke('copilot:deleteProfile', login),
+    setProfileEnabled: (login, enabled) => ipcRenderer.invoke('copilot:setProfileEnabled', login, enabled),
     onLoginStatus: (callback) => {
       const handler = (_event, status) => callback(status);
       ipcRenderer.on('copilot:loginStatus', handler);
